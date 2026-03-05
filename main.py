@@ -19,7 +19,7 @@ GRAPHQL_URL = "https://api.github.com/graphql"
 HEADERS = {"Authorization": f"Bearer {GITHUB_TOKEN}"}
 SEARCH_QUERY = "microservices OR microservice OR software-engineering OR software engineering stars:>1 sort:stars-desc"
 TOTAL_REPOS = 1000
-PAGE_SIZE = 100
+PAGE_SIZE = 25
 
 QUERY = """
 query ($queryString: String!, $pageSize: Int!, $cursor: String) {
@@ -42,9 +42,28 @@ query ($queryString: String!, $pageSize: Int!, $cursor: String) {
 
 def run_query(query, variables):
     for attempt in range(5):
-        resp = requests.post(GRAPHQL_URL, json={"query": query, "variables": variables}, headers=HEADERS, timeout=30)
-        data = resp.json()
-        if resp.status_code == 502 or "rate" in str(data.get("errors", "")).lower():
+        resp = requests.post(GRAPHQL_URL, json={"query": query, "variables": variables}, headers=HEADERS, timeout=60)
+
+        if resp.status_code in (502, 503):
+            print(f"  Erro {resp.status_code} (body={resp.text[:200]}), tentativa {attempt + 1}/5...")
+            time.sleep(2 ** attempt * 5)
+            continue
+
+        if resp.status_code != 200:
+            print(f"  HTTP {resp.status_code}: {resp.text[:300]}")
+
+        if resp.status_code == 401:
+            raise Exception("Token inválido ou expirado. Verifique GITHUB_TOKEN no .env")
+
+        try:
+            data = resp.json()
+        except Exception:
+            print(f"  Resposta não-JSON (HTTP {resp.status_code}), tentativa {attempt + 1}/5...")
+            time.sleep(2 ** attempt * 5)
+            continue
+
+        if "rate" in str(data.get("errors", "")).lower():
+            print(f"  Rate limit atingido, aguardando...")
             time.sleep(2 ** attempt * 5)
             continue
         if "errors" in data:
