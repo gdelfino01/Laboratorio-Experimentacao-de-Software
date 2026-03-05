@@ -17,9 +17,9 @@ if not GITHUB_TOKEN:
 
 GRAPHQL_URL = "https://api.github.com/graphql"
 HEADERS = {"Authorization": f"Bearer {GITHUB_TOKEN}"}
-SEARCH_QUERY = "microservices OR microservice OR software-engineering OR software engineering"
-TOTAL_REPOS = 100
-PAGE_SIZE = 25
+SEARCH_QUERY = "microservices OR microservice OR software-engineering OR software engineering stars:>1 sort:stars-desc"
+TOTAL_REPOS = 1000
+PAGE_SIZE = 100
 
 QUERY = """
 query ($queryString: String!, $pageSize: Int!, $cursor: String) {
@@ -59,7 +59,7 @@ def fetch_repositories():
 
     while len(repos) < TOTAL_REPOS:
         size = min(PAGE_SIZE, TOTAL_REPOS - len(repos))
-        variables = {"queryString": f"{SEARCH_QUERY} sort:stars-desc", "pageSize": size, "cursor": cursor}
+        variables = {"queryString": SEARCH_QUERY, "pageSize": size, "cursor": cursor}
 
         print(f"Buscando repos... ({len(repos)}/{TOTAL_REPOS})")
         data = run_query(QUERY, variables)
