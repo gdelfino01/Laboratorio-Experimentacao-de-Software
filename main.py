@@ -18,17 +18,10 @@ if not GITHUB_TOKEN:
     )
 
 GRAPHQL_URL = "https://api.github.com/graphql"
-HEADERS = {
-    "Authorization": f"Bearer {GITHUB_TOKEN}",
-    "Content-Type": "application/json",
-}
-
-SEARCH_QUERY = os.getenv("SEARCH_QUERY", "stars:>0 sort:stars-desc")
-TOTAL_REPOS = int(os.getenv("TOTAL_REPOS", "100"))
-PAGE_SIZE = min(int(os.getenv("PAGE_SIZE", "10")), 10)
-CSV_FILENAME = os.getenv("CSV_FILENAME", "repositorios.csv")
-REQUEST_TIMEOUT = int(os.getenv("REQUEST_TIMEOUT", "60"))
-REQUEST_SLEEP_SECONDS = float(os.getenv("REQUEST_SLEEP_SECONDS", "0.8"))
+HEADERS = {"Authorization": f"Bearer {GITHUB_TOKEN}"}
+SEARCH_QUERY = "microservices OR microservice OR software-engineering OR software engineering stars:>1 sort:stars-desc"
+TOTAL_REPOS = 1000
+PAGE_SIZE = 25
 
 QUERY = """
 query ($queryString: String!, $pageSize: Int!, $cursor: String) {
@@ -71,33 +64,31 @@ query ($queryString: String!, $pageSize: Int!, $cursor: String) {
 }
 """
 
+def run_query(query, variables):
+    for attempt in range(5):
+        resp = requests.post(GRAPHQL_URL, json={"query": query, "variables": variables}, headers=HEADERS, timeout=60)
 
-def run_query(query: str, variables: Dict[str, Any]) -> Dict[str, Any]:
-    last_error: Optional[str] = None
-
-    for attempt in range(6):
-        try:
-            response = requests.post(
-                GRAPHQL_URL,
-                json={"query": query, "variables": variables},
-                headers=HEADERS,
-                timeout=REQUEST_TIMEOUT,
-            )
-        except requests.RequestException as exc:
-            last_error = f"Falha de rede: {exc}"
-            time.sleep((2 ** attempt) * 2)
+        if resp.status_code in (502, 503):
+            print(f"  Erro {resp.status_code} (body={resp.text[:200]}), tentativa {attempt + 1}/5...")
+            time.sleep(2 ** attempt * 5)
             continue
 
+        if resp.status_code != 200:
+            print(f"  HTTP {resp.status_code}: {resp.text[:300]}")
+
+        if resp.status_code == 401:
+            raise Exception("Token inválido ou expirado. Verifique GITHUB_TOKEN no .env")
+
         try:
-            data = response.json()
-        except ValueError:
-            last_error = f"Resposta inválida da API (status {response.status_code})."
-            time.sleep((2 ** attempt) * 2)
+            data = resp.json()
+        except Exception:
+            print(f"  Resposta não-JSON (HTTP {resp.status_code}), tentativa {attempt + 1}/5...")
+            time.sleep(2 ** attempt * 5)
             continue
 
-        if response.status_code >= 500:
-            last_error = f"Erro do GitHub (status {response.status_code})."
-            time.sleep((2 ** attempt) * 2)
+        if "rate" in str(data.get("errors", "")).lower():
+            print(f"  Rate limit atingido, aguardando...")
+            time.sleep(2 ** attempt * 5)
             continue
 
         errors = data.get("errors", [])
@@ -140,11 +131,7 @@ def fetch_repositories() -> List[Dict[str, Any]]:
 
     while len(repositories) < TOTAL_REPOS:
         size = min(PAGE_SIZE, TOTAL_REPOS - len(repositories))
-        variables = {
-            "queryString": SEARCH_QUERY,
-            "pageSize": size,
-            "cursor": cursor,
-        }
+        variables = {"queryString": SEARCH_QUERY, "pageSize": size, "cursor": cursor}
 
         print(f"Buscando repositórios... ({len(repositories)}/{TOTAL_REPOS})")
         data = run_query(QUERY, variables)
@@ -172,7 +159,7 @@ def fetch_repositories() -> List[Dict[str, Any]]:
             break
 
         cursor = search_data["pageInfo"]["endCursor"]
-        time.sleep(REQUEST_SLEEP_SECONDS)
+        time.sleep(1)
 
     print(f"Total coletado: {len(repositories)}")
     return repositories[:TOTAL_REPOS]
@@ -208,7 +195,7 @@ def process_repositories(repositories: Iterable[Dict[str, Any]]) -> List[Dict[st
     return processed
 
 
-def save_csv(data: List[Dict[str, Any]], filename: str = CSV_FILENAME) -> None:
+def save_csv(data: List[Dict[str, Any]], filename: str = "repositorios.csv") -> None:
     if not data:
         print("Nenhum dado para salvar.")
         return
