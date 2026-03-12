@@ -198,7 +198,7 @@ def rq05(data: list[dict]):
     print("\n[RQ05] Linguagens primárias")
     languages = [row.get("linguagem_primaria") or "Desconhecida" for row in data]
     counts = Counter(languages)
-    top_n = 12
+    top_n = 10
     top_items = counts.most_common(top_n)
 
     if not top_items:
@@ -211,7 +211,7 @@ def rq05(data: list[dict]):
 
     fig, ax = plt.subplots(figsize=(10, 6))
     bars = ax.barh(names, values, color="#4C78A8", alpha=0.85)
-    ax.set_title("RQ05 — Top Linguagens Primárias")
+    ax.set_title("RQ05 — Top 10 Linguagens Primárias")
     ax.set_xlabel("Número de repositórios")
     for bar, value in zip(bars, values):
         pct = (value * 100 / total) if total else 0
@@ -219,7 +219,7 @@ def rq05(data: list[dict]):
     save(fig, "rq05_top_linguagens.png")
 
     fig, ax = plt.subplots(figsize=(10, 5))
-    ordered = counts.most_common()
+    ordered = counts.most_common(top_n)
     labels = [item[0] for item in ordered]
     vals = [item[1] for item in ordered]
     cumulative = []
@@ -233,8 +233,8 @@ def rq05(data: list[dict]):
     ax2.plot(range(len(cumulative)), cumulative, color="#E45756", marker="o", linewidth=2)
     ax2.set_ylabel("Percentual acumulado (%)")
     ax.set_ylabel("Número de repositórios")
-    ax.set_xlabel("Linguagens (ordenadas por frequência)")
-    ax.set_title("RQ05 — Curva Acumulada de Linguagens")
+    ax.set_xlabel("Top 10 linguagens (ordenadas por frequência)")
+    ax.set_title("RQ05 — Curva Acumulada das Top 10 Linguagens")
     ax.set_xticks(range(len(labels)))
     ax.set_xticklabels(labels, rotation=45, ha="right")
     ax2.set_ylim(0, 105)
