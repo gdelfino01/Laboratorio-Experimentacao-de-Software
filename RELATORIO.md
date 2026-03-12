@@ -150,46 +150,29 @@ Os resultados foram visualizados por meio de gráficos estatísticos gerados aut
 | Mínimo | 0 dias |
 | Máximo | 4.888 dias |
 
-#### RQ05 — Linguagens Primárias (Amostra Atual)
+#### RQ05 — Linguagens Primárias
 
-| Linguagem | Quantidade | Percentual |
-|-----------|------------|------------|
-| Desconhecida | 25 | 25,0% |
-| Python | 21 | 21,0% |
-| Jupyter Notebook | 10 | 10,0% |
-| JavaScript | 7 | 7,0% |
-| TypeScript | 6 | 6,0% |
-| Go | 6 | 6,0% |
-| Java | 4 | 4,0% |
-| C++ | 4 | 4,0% |
-| CSS | 3 | 3,0% |
-| MDX | 2 | 2,0% |
+| Estatística | Valor |
+|-------------|-------|
+| Linguagem mais frequente | Python (249 repositórios, 24,9%) |
+| 2ª linguagem mais frequente | Desconhecida (228 repositórios, 22,8%) |
+| 3ª linguagem mais frequente | Jupyter Notebook (99 repositórios, 9,9%) |
+| Linguagens clássicas de desenvolvimento (C, C++, Java, JavaScript, TypeScript, Go) | 247 repositórios (24,7%) |
+| Top 10 linguagens | 864 repositórios (86,4%) |
 
 #### RQ06 — Razão de Issues Fechadas
 
 | Estatística | Valor |
 |-------------|-------|
-| Registros válidos | 98 |
-| Mediana | 0,7368 |
-| Média | 0,6667 |
+| Repositórios com razão calculável | 866 |
+| Mediana | 0,6667 |
+| Média | 0,6010 |
 | Mínimo | 0,0000 |
 | Máximo | 1,0000 |
-| 1º Quartil (Q1) | 0,4641 |
-| 3º Quartil (Q3) | 0,9117 |
-| Repos com razão ≥ 0,70 | 58 (59,18%) |
-
-#### RQ07 — Indicadores por Linguagem (Top 8)
-
-| Linguagem | n | Mediana PRs | Mediana Releases | Mediana dias sem atualização | Mediana razão issues |
-|-----------|---|-------------|------------------|------------------------------|----------------------|
-| Desconhecida | 25 | 12,0 | 0,0 | 472,0 | 0,5660 |
-| Python | 21 | 145,0 | 9,0 | 7,0 | 0,7362 |
-| Jupyter Notebook | 10 | 119,5 | 0,0 | 10,0 | 0,7976 |
-| JavaScript | 7 | 66,0 | 0,0 | 25,0 | 0,6000 |
-| TypeScript | 6 | 1735,5 | 285,5 | 1,0 | 0,7870 |
-| Go | 6 | 2640,0 | 117,0 | 3,0 | 0,7697 |
-| Java | 4 | 593,5 | 40,0 | 3,5 | 0,7477 |
-| C++ | 4 | 1199,0 | 31,0 | 1,0 | 0,7520 |
+| 1º Quartil (Q1) | 0,3339 |
+| 3º Quartil (Q3) | 0,9163 |
+| Repositórios com razão ≥ 0,70 | 414 (47,81%) |
+| Repositórios com razão ≥ 0,90 | 232 (26,79%) |
 
 
 ### 3.2 Gráficos Gerados
@@ -205,11 +188,11 @@ Os resultados foram visualizados por meio de gráficos estatísticos gerados aut
 | Histograma de Releases | `graficos/rq03_histograma.png` | RQ03 |
 | Boxplot Dias Desde Atualização | `graficos/rq04_boxplot.png` | RQ04 |
 | Histograma Dias Desde Atualização | `graficos/rq04_histograma.png` | RQ04 |
-| Barras de Linguagens Primárias | `graficos/rq05_top_linguagens.png` | RQ05 |
-| Curva Acumulada de Linguagens | `graficos/rq05_pareto_linguagens.png` | RQ05 |
-| Boxplot Razão de Issues Fechadas | `graficos/rq06_boxplot.png` | RQ06 |
-| Histograma Razão de Issues Fechadas | `graficos/rq06_histograma.png` | RQ06 |
-| PRs e Releases por Linguagem | `graficos/rq07_prs_releases_por_linguagem.png` | RQ07 |
+| Top 10 Linguagens Primárias | `graficos/rq05_top_linguagens.png` | RQ05 |
+| Pareto das Top 10 Linguagens | `graficos/rq05_pareto_linguagens.png` | RQ05 |
+| Boxplot da Razão de Issues Fechadas | `graficos/rq06_boxplot.png` | RQ06 |
+| Histograma da Razão de Issues Fechadas | `graficos/rq06_histograma.png` | RQ06 |
+| PRs e Releases por Linguagem (medianas) | `graficos/rq07_prs_releases_por_linguagem.png` | RQ07 (exploratória) |
 
 ---
 
@@ -243,21 +226,25 @@ Os resultados foram visualizados por meio de gráficos estatísticos gerados aut
 
 #### RQ05 — Sistemas populares são escritos nas linguagens mais populares?
 
-**Resultado:** Na amostra atual do arquivo `repositorios.csv`, as linguagens mais frequentes foram **Desconhecida (25%)**, **Python (21%)**, **Jupyter Notebook (10%)**, seguidas por JavaScript (7%), TypeScript (6%) e Go (6%).
+**Resultado:** A distribuição de linguagens mostra forte concentração em poucas categorias: **Python (24,9%)**, seguido de **Desconhecida (22,8%)** e **Jupyter Notebook (9,9%)**. Entre linguagens tradicionais de desenvolvimento e engenharia de software, destacam-se C, C++, JavaScript, TypeScript, Java e Go.
 
-**Confronto com H5:** A hipótese **H5 é parcialmente confirmada**. Linguagens tradicionais do ecossistema (Python, JavaScript, TypeScript e Java) aparecem no topo, mas o conjunto também apresenta forte presença de projetos sem linguagem principal definida e de repositórios orientados a notebooks.
+**Confronto com H5:** A hipótese previa domínio de JavaScript, Python, TypeScript e Java. A hipótese **H5 é parcialmente confirmada**. Python aparece como principal linguagem, e JavaScript/TypeScript/Java estão presentes no top 10; porém, não dominam conjuntamente o conjunto de dados, que também contém muitos repositórios sem linguagem primária definida e um volume relevante de notebooks.
 
 #### RQ06 — Sistemas populares possuem alto percentual de issues fechadas?
 
-**Resultado:** Considerando 98 repositórios com valor válido, a mediana da razão de issues fechadas foi **0,7368** (Q1 = 0,4641; Q3 = 0,9117). Além disso, **59,18%** dos repositórios apresentam razão maior ou igual a 0,70.
+**Resultado:** Considerando os 866 repositórios com razão calculável, a mediana da razão de issues fechadas é **0,6667** e a média é **0,6010**. Apenas **47,81%** dos repositórios atingem razão **≥ 0,70**.
 
-**Confronto com H6:** A hipótese **H6 é confirmada** pela mediana acima de 0,70. Entretanto, a dispersão (Q1 abaixo de 0,50) indica que parte relevante dos projetos ainda apresenta gestão de issues menos eficiente.
+**Confronto com H6:** A hipótese previa razão alta (acima de 0,70). Como a mediana é 0,6667 e menos da metade dos projetos supera 0,70, a hipótese **H6 é refutada**. Há sinais de boa capacidade de resolução em parte dos projetos (Q3=0,9163), mas o comportamento geral é heterogêneo e inferior ao limiar esperado.
 
-#### RQ07 — Linguagens mais populares também concentram melhores indicadores de colaboração e manutenção?
+### 4.2 Análise Exploratória por Linguagem (RQ07)
 
-**Resultado:** A comparação por linguagem mostrou comportamento heterogêneo. Linguagens com menor frequência na amostra, como **Go** e **TypeScript**, apresentaram medianas muito altas de PRs aceitas e releases. Já linguagens mais frequentes, como Python, tiveram indicadores bons, porém menos extremos. Em atualização, TypeScript e C++ tiveram mediana de 1 dia sem atualização, enquanto o grupo "Desconhecida" ficou em 472 dias.
+Como análise complementar, foi observada a relação entre linguagem primária e três indicadores: PRs aceitas, releases e dias desde a última atualização (medianas por linguagem).
 
-**Confronto com H7:** A hipótese **H7 é parcialmente refutada**. A frequência de uma linguagem no conjunto não implica, por si só, maior colaboração externa ou maior ritmo de releases. Os resultados sugerem que o tipo do projeto e o perfil da comunidade são fatores mais determinantes do que a popularidade da linguagem isoladamente.
+- **TypeScript e Go** apresentam medianas mais altas de PRs e releases no grupo analisado, além de menor tempo desde atualização em comparação com várias outras linguagens.
+- **Python** e **Jupyter Notebook**, embora muito frequentes no dataset, concentram muitos repositórios com baixa mediana de releases e atualização menos recente.
+- A categoria **Desconhecida** reforça uma limitação de metadados do GitHub para parte dos repositórios, reduzindo a precisão da interpretação por linguagem.
+
+Esses resultados sugerem que popularidade por estrelas e dinâmica de manutenção não são uniformes entre linguagens e dependem do tipo de artefato (código de produto, conteúdo educacional, curadoria, experimentos etc.).
 
 ---
 
