@@ -101,4 +101,94 @@ Caracterizar os 1.000 repositórios mais populares do GitHub (por número de est
 
 ---
 
+## 3. Visualização dos Resultados
+
+Os resultados foram visualizados por meio de gráficos estatísticos gerados automaticamente pelo script `visualizacoes.py`, salvos na pasta `graficos/`. A escolha de cada tipo de gráfico foi orientada pela natureza dos dados e pelo objetivo de cada questão de pesquisa. O detalhamento completo de cada gráfico está no arquivo `graficos.md`.
+
+### 3.1 Resultados Tabulares
+
+#### RQ01 — Idade dos Repositórios (em anos)
+
+| Estatística | Valor |
+|-------------|-------|
+| Mediana | 5,48 anos |
+| Média | 5,59 anos |
+| Mínimo | 0,00 anos |
+| Máximo | 15,15 anos |
+| 1º Quartil (Q1) | 2,57 anos |
+| 3º Quartil (Q3) | 8,26 anos |
+
+#### RQ02 — Pull Requests Aceitas
+
+| Estatística | Valor |
+|-------------|-------|
+| Mediana | 6 |
+| Média | 223 |
+| Mínimo | 0 |
+| Máximo | 18.454 |
+
+#### RQ03 — Releases
+
+| Estatística | Valor |
+|-------------|-------|
+| Mediana (todos) | 0 |
+| Média | 12 |
+| Repos sem releases (0) | 705 (70,5%) |
+| Repos com ≥1 release | 295 (29,5%) |
+| Mediana (apenas repos com releases) | 12 |
+
+#### RQ04 — Dias Desde a Última Atualização
+
+| Estatística | Valor |
+|-------------|-------|
+| Mediana | 382 dias |
+| Média | 697 dias |
+| Mínimo | 0 dias |
+| Máximo | 4.888 dias |
+
+
+### 3.2 Gráficos Gerados
+
+| Gráfico | Arquivo | RQ |
+|---------|---------|-----|
+| Boxplot da Idade | `graficos/rq01_boxplot.png` | RQ01 |
+| Histograma da Idade | `graficos/rq01_histograma.png` | RQ01 |
+| Boxplot de PRs Aceitas (log) | `graficos/rq02_boxplot.png` | RQ02 |
+| Scatter Estrelas × PRs | `graficos/rq02_scatter.png` | RQ02 |
+| Barras com/sem Releases | `graficos/rq03_barras.png` | RQ03 |
+| Boxplot de Releases (log) | `graficos/rq03_boxplot.png` | RQ03 |
+| Histograma de Releases | `graficos/rq03_histograma.png` | RQ03 |
+| Boxplot Dias Desde Atualização | `graficos/rq04_boxplot.png` | RQ04 |
+| Histograma Dias Desde Atualização | `graficos/rq04_histograma.png` | RQ04 |
+
+---
+
+## 4. Discussão dos Resultados
+
+### 4.1 Confronto com as Questões de Pesquisa
+
+#### RQ01 — Sistemas populares são maduros/antigos?
+
+**Resultado:** A mediana da idade é de **5,48 anos** e a média é de 5,59 anos. O primeiro quartil está em 2,57 anos e o terceiro quartil em 8,26 anos.
+
+**Confronto com H1:** A hipótese previa que a maioria teria pelo menos 5 anos. Com a mediana em 5,48, a hipótese **H1 é confirmada**: mais da metade dos repositórios populares tem pelo menos 5 anos de existência. Isso indica que a acumulação de estrelas é, de fato, um processo que demanda tempo. No entanto, o Q1 em 2,57 anos mostra que 25% dos projetos têm menos de 2,5 anos, indicando que projetos recentes com propostas inovadoras (ex: ferramentas de IA generativa, LLMs) também alcançam alta popularidade rapidamente.
+
+#### RQ02 — Sistemas populares recebem muita contribuição externa?
+
+**Resultado:** A mediana de PRs aceitas é de apenas **6**, enquanto a média é de 223. A discrepância revela uma distribuição extremamente assimétrica: poucos projetos concentram milhares de PRs (máximo de 18.454), enquanto a maioria recebe poucas contribuições.
+
+**Confronto com H2:** A hipótese previa mediana acima de 500. Com mediana de 6, a hipótese **H2 é refutada**. A maioria dos repositórios populares no contexto de engenharia de software são listas curadas, tutoriais e materiais de referência que, por natureza, não demandam grande volume de pull requests. A popularidade (estrelas) não implica necessariamente contribuição externa ativa via PRs.
+
+#### RQ03 — Sistemas populares lançam releases com frequência?
+
+**Resultado:** **70,5% dos repositórios** (705) não possuem nenhuma release. Entre os 295 que publicam releases, a mediana é de **12 releases**.
+
+**Confronto com H3:** A hipótese previa mediana acima de 20. Com mediana geral de 0 e, mesmo filtrando os que têm releases, mediana de 12, a hipótese **H3 é refutada**. A grande maioria dos projetos populares de engenharia de software não utiliza o sistema de releases do GitHub, o que é coerente com a natureza de muitos deles (documentação, listas, tutoriais). Contudo, entre os projetos com releases, o número é expressivo e indica ciclos de desenvolvimento ativos.
+
+#### RQ04 — Sistemas populares são atualizados com frequência?
+
+**Resultado:** A mediana de dias desde a última atualização é de **382 dias** e a média é de 697 dias.
+
+**Confronto com H4:** A hipótese previa mediana inferior a 30 dias. Com 382 dias, a hipótese **H4 é refutada**. Muitos repositórios populares de engenharia de software atingem um estado estável (listas curadas, tutoriais completos) e não necessitam de atualizações frequentes. Isso difere de projetos de software ativo (frameworks, bibliotecas), que são atualizados continuamente.
+
 
