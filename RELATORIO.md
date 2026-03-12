@@ -18,6 +18,7 @@ Apesar da grande quantidade de projetos disponíveis no GitHub, pouco se sabe de
 - **RQ04.** Sistemas populares são atualizados com frequência?
 - **RQ05.** Sistemas populares são escritos nas linguagens mais populares?
 - **RQ06.** Sistemas populares possuem um alto percentual de issues fechadas?
+- **RQ07.** Linguagens mais populares também apresentam maiores indicadores de colaboração e manutenção?
 
 ### 1.4 Hipóteses
 
@@ -32,6 +33,8 @@ Apesar da grande quantidade de projetos disponíveis no GitHub, pouco se sabe de
 - **H5 (RQ05):** Espera-se que linguagens como **JavaScript, Python, TypeScript e Java** dominem entre os repositórios mais populares, acompanhando as tendências do ecossistema open-source.
 
 - **H6 (RQ06):** Espera-se que a razão entre issues fechadas e total de issues seja **alta (acima de 0,70)**, sugerindo comunidades ativas que resolvem a maioria dos problemas reportados.
+
+- **H7 (RQ07):** Espera-se que as linguagens mais frequentes entre os repositórios populares também apresentem maiores medianas de PRs aceitas, releases e menor tempo sem atualização.
 
 ### 1.5 Objetivos
 
@@ -52,8 +55,8 @@ Caracterizar os 1.000 repositórios mais populares do GitHub (por número de est
 ### 2.1 Passo a Passo do Experimento
 
 1. **Configuração do ambiente:** Instalação das dependências Python (`requests`, `python-dotenv`) e configuração do token de acesso à API do GitHub via variável de ambiente (`GITHUB_TOKEN`).
-2. **Construção da query GraphQL:** Elaboração de uma consulta que retorna, para cada repositório, todos os campos necessários para responder às seis questões de pesquisa.
-3. **Coleta com paginação:** Execução de requisições paginadas à API GraphQL do GitHub (10 páginas de 100 repositórios cada), ordenadas por número de estrelas em ordem decrescente, totalizando 1.000 repositórios.
+2. **Construção da query GraphQL:** Elaboração de uma consulta que retorna, para cada repositório, todos os campos necessários para responder às sete questões de pesquisa.
+3. **Coleta com paginação:** Execução de requisições paginadas à API GraphQL do GitHub (40 páginas de 25 repositórios cada), ordenadas por número de estrelas em ordem decrescente, totalizando 1.000 repositórios.
 4. **Processamento dos dados:** Cálculo de métricas derivadas (idade em dias, dias desde última atualização, razão de issues fechadas) a partir dos dados brutos retornados pela API.
 5. **Armazenamento em CSV:** Exportação dos dados processados para o arquivo `repositorios.csv`.
 6. **Sumarização:** Cálculo e exibição de valores medianos e médios para cada questão de pesquisa, além da contagem de linguagens primárias.
@@ -64,7 +67,7 @@ Caracterizar os 1.000 repositórios mais populares do GitHub (por número de est
 |---------|---------------|
 | Uso da API GraphQL (em vez da REST) | Permite obter todos os campos necessários em uma única requisição por página, reduzindo o número de chamadas à API. |
 | Paginação com cursor (`endCursor`) | Mecanismo recomendado pelo GitHub para percorrer grandes conjuntos de resultados de forma eficiente e consistente. |
-| Tamanho de página = 100 | Valor máximo permitido pela API GraphQL do GitHub para buscas, minimizando o número total de requisições. |
+| Tamanho de página = 25 | Valor máximo permitido pela API GraphQL do GitHub para buscas, minimizando o número total de requisições. |
 | Critério de seleção: `microservices OR microservice OR software-engineering OR software engineering stars:>1 sort:stars-desc` | Garante a obtenção dos repositórios ordenados por popularidade (estrelas) que tem como tema engenharia de software ou microsserviços. |
 | Intervalo de 1 segundo entre requisições | Evita atingir os limites de taxa (rate limit) da API do GitHub. |
 | Retry com backoff exponencial (até 5 tentativas) | Garante resiliência contra erros transitórios (HTTP 502) e rate limiting. |
@@ -98,6 +101,7 @@ Caracterizar os 1.000 repositórios mais populares do GitHub (por número de est
 | Tempo até última atualização | RQ04 | Diferença entre a data atual e a data do último push/atualização do repositório. | Dias |
 | Linguagem primária | RQ05 | Linguagem de programação principal definida pelo GitHub para o repositório. | Categórica (nome da linguagem) |
 | Razão de issues fechadas | RQ06 | Proporção entre o número de issues fechadas e o número total de issues (fechadas + abertas). | Razão (0,00 a 1,00) |
+| Indicadores por linguagem | RQ07 | Medianas de PRs aceitas, releases, dias sem atualização e razão de issues fechadas por linguagem primária. | Misto (contagem, dias e razão) |
 
 ---
 
@@ -146,6 +150,47 @@ Os resultados foram visualizados por meio de gráficos estatísticos gerados aut
 | Mínimo | 0 dias |
 | Máximo | 4.888 dias |
 
+#### RQ05 — Linguagens Primárias (Amostra Atual)
+
+| Linguagem | Quantidade | Percentual |
+|-----------|------------|------------|
+| Desconhecida | 25 | 25,0% |
+| Python | 21 | 21,0% |
+| Jupyter Notebook | 10 | 10,0% |
+| JavaScript | 7 | 7,0% |
+| TypeScript | 6 | 6,0% |
+| Go | 6 | 6,0% |
+| Java | 4 | 4,0% |
+| C++ | 4 | 4,0% |
+| CSS | 3 | 3,0% |
+| MDX | 2 | 2,0% |
+
+#### RQ06 — Razão de Issues Fechadas
+
+| Estatística | Valor |
+|-------------|-------|
+| Registros válidos | 98 |
+| Mediana | 0,7368 |
+| Média | 0,6667 |
+| Mínimo | 0,0000 |
+| Máximo | 1,0000 |
+| 1º Quartil (Q1) | 0,4641 |
+| 3º Quartil (Q3) | 0,9117 |
+| Repos com razão ≥ 0,70 | 58 (59,18%) |
+
+#### RQ07 — Indicadores por Linguagem (Top 8)
+
+| Linguagem | n | Mediana PRs | Mediana Releases | Mediana dias sem atualização | Mediana razão issues |
+|-----------|---|-------------|------------------|------------------------------|----------------------|
+| Desconhecida | 25 | 12,0 | 0,0 | 472,0 | 0,5660 |
+| Python | 21 | 145,0 | 9,0 | 7,0 | 0,7362 |
+| Jupyter Notebook | 10 | 119,5 | 0,0 | 10,0 | 0,7976 |
+| JavaScript | 7 | 66,0 | 0,0 | 25,0 | 0,6000 |
+| TypeScript | 6 | 1735,5 | 285,5 | 1,0 | 0,7870 |
+| Go | 6 | 2640,0 | 117,0 | 3,0 | 0,7697 |
+| Java | 4 | 593,5 | 40,0 | 3,5 | 0,7477 |
+| C++ | 4 | 1199,0 | 31,0 | 1,0 | 0,7520 |
+
 
 ### 3.2 Gráficos Gerados
 
@@ -160,6 +205,11 @@ Os resultados foram visualizados por meio de gráficos estatísticos gerados aut
 | Histograma de Releases | `graficos/rq03_histograma.png` | RQ03 |
 | Boxplot Dias Desde Atualização | `graficos/rq04_boxplot.png` | RQ04 |
 | Histograma Dias Desde Atualização | `graficos/rq04_histograma.png` | RQ04 |
+| Barras de Linguagens Primárias | `graficos/rq05_top_linguagens.png` | RQ05 |
+| Curva Acumulada de Linguagens | `graficos/rq05_pareto_linguagens.png` | RQ05 |
+| Boxplot Razão de Issues Fechadas | `graficos/rq06_boxplot.png` | RQ06 |
+| Histograma Razão de Issues Fechadas | `graficos/rq06_histograma.png` | RQ06 |
+| PRs e Releases por Linguagem | `graficos/rq07_prs_releases_por_linguagem.png` | RQ07 |
 
 ---
 
@@ -190,5 +240,33 @@ Os resultados foram visualizados por meio de gráficos estatísticos gerados aut
 **Resultado:** A mediana de dias desde a última atualização é de **382 dias** e a média é de 697 dias.
 
 **Confronto com H4:** A hipótese previa mediana inferior a 30 dias. Com 382 dias, a hipótese **H4 é refutada**. Muitos repositórios populares de engenharia de software atingem um estado estável (listas curadas, tutoriais completos) e não necessitam de atualizações frequentes. Isso difere de projetos de software ativo (frameworks, bibliotecas), que são atualizados continuamente.
+
+#### RQ05 — Sistemas populares são escritos nas linguagens mais populares?
+
+**Resultado:** Na amostra atual do arquivo `repositorios.csv`, as linguagens mais frequentes foram **Desconhecida (25%)**, **Python (21%)**, **Jupyter Notebook (10%)**, seguidas por JavaScript (7%), TypeScript (6%) e Go (6%).
+
+**Confronto com H5:** A hipótese **H5 é parcialmente confirmada**. Linguagens tradicionais do ecossistema (Python, JavaScript, TypeScript e Java) aparecem no topo, mas o conjunto também apresenta forte presença de projetos sem linguagem principal definida e de repositórios orientados a notebooks.
+
+#### RQ06 — Sistemas populares possuem alto percentual de issues fechadas?
+
+**Resultado:** Considerando 98 repositórios com valor válido, a mediana da razão de issues fechadas foi **0,7368** (Q1 = 0,4641; Q3 = 0,9117). Além disso, **59,18%** dos repositórios apresentam razão maior ou igual a 0,70.
+
+**Confronto com H6:** A hipótese **H6 é confirmada** pela mediana acima de 0,70. Entretanto, a dispersão (Q1 abaixo de 0,50) indica que parte relevante dos projetos ainda apresenta gestão de issues menos eficiente.
+
+#### RQ07 — Linguagens mais populares também concentram melhores indicadores de colaboração e manutenção?
+
+**Resultado:** A comparação por linguagem mostrou comportamento heterogêneo. Linguagens com menor frequência na amostra, como **Go** e **TypeScript**, apresentaram medianas muito altas de PRs aceitas e releases. Já linguagens mais frequentes, como Python, tiveram indicadores bons, porém menos extremos. Em atualização, TypeScript e C++ tiveram mediana de 1 dia sem atualização, enquanto o grupo "Desconhecida" ficou em 472 dias.
+
+**Confronto com H7:** A hipótese **H7 é parcialmente refutada**. A frequência de uma linguagem no conjunto não implica, por si só, maior colaboração externa ou maior ritmo de releases. Os resultados sugerem que o tipo do projeto e o perfil da comunidade são fatores mais determinantes do que a popularidade da linguagem isoladamente.
+
+---
+
+## 5. Conclusão
+
+O experimento foi concluído com visualizações e discussão cobrindo **RQ01 a RQ07**. As novas análises mostraram que o ecossistema estudado combina projetos altamente ativos com outros mais estáveis/documentais, o que explica a coexistência de métricas de colaboração muito altas em subgrupos e baixa atividade em parte significativa da amostra.
+
+Do ponto de vista de decisão, os resultados indicam que avaliar popularidade apenas por estrelas é insuficiente para inferir maturidade operacional. Para análises futuras, recomenda-se segmentar o conjunto por tipo de repositório (biblioteca, framework, tutorial, lista curada, notebook) antes de comparar colaboração, releases e manutenção.
+
+Como continuidade, podem ser exploradas duas extensões: (i) ampliar a amostra para o total planejado de 1.000 repositórios no mesmo pipeline e (ii) confrontar os achados com estudos prévios de mineração de repositórios em Engenharia de Software.
 
 
