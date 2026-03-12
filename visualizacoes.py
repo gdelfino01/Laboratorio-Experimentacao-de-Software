@@ -4,13 +4,14 @@ Lê os dados de repositorios.csv e gera gráficos na pasta 'graficos/'.
 """
 
 import csv
+import math
 import os
 import statistics
+from collections import Counter, defaultdict
 
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import matplotlib.ticker as ticker
 
 
 OUTPUT_DIR = "graficos"
@@ -40,6 +41,12 @@ def save(fig, name: str):
     fig.savefig(os.path.join(OUTPUT_DIR, name), dpi=150, bbox_inches="tight")
     plt.close(fig)
     print(f"  Salvo: {OUTPUT_DIR}/{name}")
+
+
+def median(values: list[float]) -> float:
+    if not values:
+        return 0.0
+    return statistics.median(values)
 
 
 # ── RQ01: Idade dos repositórios ────────────────────────────────────
@@ -186,6 +193,144 @@ def rq04(data: list[dict]):
     save(fig, "rq04_histograma.png")
 
 
+# ── RQ05: Linguagens mais populares ────────────────────────────────
+def rq05(data: list[dict]):
+    print("\n[RQ05] Linguagens primárias")
+    languages = [row.get("linguagem_primaria") or "Desconhecida" for row in data]
+    counts = Counter(languages)
+    top_n = 12
+    top_items = counts.most_common(top_n)
+
+    if not top_items:
+        print("  Sem dados de linguagem para plotar.")
+        return
+
+    names = [item[0] for item in top_items][::-1]
+    values = [item[1] for item in top_items][::-1]
+    total = len(languages)
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+    bars = ax.barh(names, values, color="#4C78A8", alpha=0.85)
+    ax.set_title("RQ05 — Top Linguagens Primárias")
+    ax.set_xlabel("Número de repositórios")
+    for bar, value in zip(bars, values):
+        pct = (value * 100 / total) if total else 0
+        ax.text(value + 0.3, bar.get_y() + bar.get_height() / 2, f"{value} ({pct:.1f}%)", va="center")
+    save(fig, "rq05_top_linguagens.png")
+
+    fig, ax = plt.subplots(figsize=(10, 5))
+    ordered = counts.most_common()
+    labels = [item[0] for item in ordered]
+    vals = [item[1] for item in ordered]
+    cumulative = []
+    acc = 0
+    for value in vals:
+        acc += value
+        cumulative.append((acc / total) * 100 if total else 0)
+
+    ax.bar(range(len(vals)), vals, color="#72B7B2", alpha=0.8)
+    ax2 = ax.twinx()
+    ax2.plot(range(len(cumulative)), cumulative, color="#E45756", marker="o", linewidth=2)
+    ax2.set_ylabel("Percentual acumulado (%)")
+    ax.set_ylabel("Número de repositórios")
+    ax.set_xlabel("Linguagens (ordenadas por frequência)")
+    ax.set_title("RQ05 — Curva Acumulada de Linguagens")
+    ax.set_xticks(range(len(labels)))
+    ax.set_xticklabels(labels, rotation=45, ha="right")
+    ax2.set_ylim(0, 105)
+    save(fig, "rq05_pareto_linguagens.png")
+
+
+# ── RQ06: Razão de issues fechadas ─────────────────────────────────
+def rq06(data: list[dict]):
+    print("\n[RQ06] Razão de issues fechadas")
+    ratios = []
+    for row in data:
+        value = row.get("razao_issues_fechadas", "")
+        try:
+            ratios.append(float(value))
+        except (ValueError, TypeError):
+            continue
+
+    if not ratios:
+        print("  Coluna 'razao_issues_fechadas' sem valores numéricos.")
+        return
+
+    med = statistics.median(ratios)
+
+    fig, ax = plt.subplots(figsize=(8, 4))
+    ax.boxplot(
+        ratios,
+        vert=False,
+        patch_artist=True,
+        boxprops=dict(facecolor="#54A24B", alpha=0.7),
+        medianprops=dict(color="white", linewidth=2),
+    )
+    ax.axvline(med, color="red", linestyle="--", label=f"Mediana: {med:.2f}")
+    ax.axvline(0.7, color="#333333", linestyle=":", label="Referência H6: 0,70")
+    ax.set_xlim(0, 1)
+    ax.set_xlabel("Razão de issues fechadas")
+    ax.set_title("RQ06 — Distribuição da Razão de Issues Fechadas")
+    ax.legend()
+    save(fig, "rq06_boxplot.png")
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+    ax.hist(ratios, bins=20, color="#54A24B", edgecolor="white", alpha=0.85)
+    ax.axvline(med, color="red", linestyle="--", label=f"Mediana: {med:.2f}")
+    ax.axvline(0.7, color="#333333", linestyle=":", label="Referência H6: 0,70")
+    ax.set_xlabel("Razão de issues fechadas")
+    ax.set_ylabel("Número de repositórios")
+    ax.set_xlim(0, 1)
+    ax.set_title("RQ06 — Histograma da Razão de Issues Fechadas")
+    ax.legend()
+    save(fig, "rq06_histograma.png")
+
+
+# ── RQ07: Linguagem x indicadores de manutenção ────────────────────
+def rq07(data: list[dict]):
+    print("\n[RQ07] Relação entre linguagem e indicadores")
+    grouped = defaultdict(list)
+    for row in data:
+        grouped[row.get("linguagem_primaria") or "Desconhecida"].append(row)
+
+    top_languages = [lang for lang, _ in Counter(grouped.keys()).most_common()]
+    # Reordena por quantidade real de repositórios e mantém top 8 para legibilidade.
+    top_languages = sorted(grouped.keys(), key=lambda lang: len(grouped[lang]), reverse=True)[:8]
+
+    if not top_languages:
+        print("  Sem dados suficientes para RQ07.")
+        return
+
+    med_prs = []
+    med_releases = []
+    med_days = []
+    med_ratio = []
+    for language in top_languages:
+        rows = grouped[language]
+        prs = numeric_values(rows, "prs_aceitas")
+        releases = numeric_values(rows, "releases")
+        days = numeric_values(rows, "dias_desde_ultima_atualizacao")
+        ratio = numeric_values(rows, "razao_issues_fechadas")
+        med_prs.append(median(prs))
+        med_releases.append(median(releases))
+        med_days.append(median(days))
+        med_ratio.append(median(ratio))
+
+    fig, ax = plt.subplots(figsize=(10, 5))
+    x = range(len(top_languages))
+    adjusted_prs = [value + 1 for value in med_prs]
+    adjusted_rel = [value + 1 for value in med_releases]
+    ax.plot(x, adjusted_prs, marker="o", label="PRs aceitas (mediana +1)")
+    ax.plot(x, adjusted_rel, marker="o", label="Releases (mediana +1)")
+    ax.set_yscale("log")
+    ax.set_xticks(list(x))
+    ax.set_xticklabels(top_languages, rotation=35, ha="right")
+    ax.set_ylabel("Escala log")
+    ax.set_title("RQ07 — PRs e Releases por Linguagem (medianas)")
+    ax.legend()
+    save(fig, "rq07_prs_releases_por_linguagem.png")
+
+
 # ── MAIN ─────────────────────────────────────────────────────────────
 def main():
     data = load_csv(CSV_FILE)
@@ -198,6 +343,9 @@ def main():
     rq02(data)
     rq03(data)
     rq04(data)
+    rq05(data)
+    rq06(data)
+    rq07(data)
 
     print(f"\nTodos os gráficos foram salvos na pasta '{OUTPUT_DIR}/'.")
 
