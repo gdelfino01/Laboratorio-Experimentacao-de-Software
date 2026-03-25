@@ -1,0 +1,62 @@
+# Dependências e ambientes
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Ambiente
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Dados
+data/repositories_list.csv
+data/repositories_with_ck.csv
+data/repositories_analyzed.csv
+logs/
+.ck_outputs/
+repositories/
+
+# Testes
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Notebooks
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Arquivos temporários
+*.tmp
+*.bak
+*.log
+
+# CSV files
+repositorios.csv
