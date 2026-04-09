@@ -1,0 +1,16 @@
+rq,process_metric,process_label,quality_metric,n,spearman_corr,spearman_pvalue,pearson_corr,pearson_pvalue
+RQ01,stars,Popularidade (estrelas),cbo_mean,968,0.030986,0.335532,-0.128224,6.3e-05
+RQ01,stars,Popularidade (estrelas),dit_mean,968,-0.044667,0.164949,-0.114641,0.000352
+RQ01,stars,Popularidade (estrelas),lcom_mean,968,0.05423,0.091736,0.020961,0.514792
+RQ02,age_years,Maturidade (idade em anos),cbo_mean,968,0.006898,0.830279,0.010379,0.747066
+RQ02,age_years,Maturidade (idade em anos),dit_mean,968,0.28829,0.0,0.191467,0.0
+RQ02,age_years,Maturidade (idade em anos),lcom_mean,968,0.199031,0.0,0.029765,0.354929
+RQ03,releases,Atividade (número de releases),cbo_mean,968,0.396713,0.0,0.207094,0.0
+RQ03,releases,Atividade (número de releases),dit_mean,968,0.202014,0.0,0.051312,0.110616
+RQ03,releases,Atividade (número de releases),lcom_mean,968,0.326236,0.0,-0.012797,0.690891
+RQ04_LOC,repo_loc,Tamanho (LOC do repositório),cbo_mean,968,0.427861,0.0,0.189603,0.0
+RQ04_LOC,repo_loc,Tamanho (LOC do repositório),dit_mean,968,0.241372,0.0,0.037336,0.245835
+RQ04_LOC,repo_loc,Tamanho (LOC do repositório),lcom_mean,968,0.461183,0.0,0.062647,0.051355
+RQ04_COMMENTS,repo_comment_lines,Tamanho (linhas de comentários),cbo_mean,968,0.39944,0.0,0.074604,0.020267
+RQ04_COMMENTS,repo_comment_lines,Tamanho (linhas de comentários),dit_mean,968,0.21634,0.0,-0.00241,0.940316
+RQ04_COMMENTS,repo_comment_lines,Tamanho (linhas de comentários),lcom_mean,968,0.43573,0.0,0.021192,0.510177
