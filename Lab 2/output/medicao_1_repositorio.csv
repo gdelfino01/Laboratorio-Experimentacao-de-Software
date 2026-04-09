@@ -1,0 +1,2 @@
+repository,class_csv,classes_analyzed,cbo_mean,cbo_median,cbo_stdev,cbo_min,cbo_max,dit_mean,dit_median,dit_stdev,dit_min,dit_max,lcom_mean,lcom_median,lcom_stdev,lcom_min,lcom_max,loc_mean,loc_median,loc_stdev,loc_min,loc_max
+google/gson,output\google__gson\ck_raw\class.csv,1082,3.0333,2.0,4.4525,0.0,44.0,1.2856,1.0,1.025,1.0,24.0,20.7773,0.0,382.1895,0.0,12403.0,32.1673,8.0,91.8187,1.0,1478.0
