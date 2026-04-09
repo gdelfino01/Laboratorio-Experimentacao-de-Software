@@ -75,16 +75,16 @@ Objetivos específicos:
 ### 3.2 Resultados Tabulares
 
 Resumo descritivo global:
-| metric             |   n |         mean |      median |         stdev |     min |              max |
-|--------------------|-----|--------------|-------------|---------------|---------|------------------|
-| stars              | 968 |   9397.3     |  5765.5     |  10698.5      | 3474    | 124039           |
-| age_years          | 968 |     10.0959  |    10.265   |      3.17618  |    0.51 |     17.43        |
-| releases           | 968 |     40.437   |    11       |     89.0187   |    0    |   1000           |
-| repo_loc           | 968 | 119470       | 17821.5     | 442849        |    2    |      1.07523e+07 |
-| repo_comment_lines | 968 |  45291.4     |  4975.5     | 409535        |    0    |      1.24668e+07 |
-| cbo_mean           | 968 |      5.37687 |     5.32635 |      1.85861  |    0    |     21.8935      |
-| dit_mean           | 968 |      1.45645 |     1.3938  |      0.351884 |    1    |      4.388       |
-| lcom_mean          | 968 |    119.348   |    24.5527  |   1744.3      |    0    |  54025.1         |
+| Métrica | Média | Mediana | Desvio Padrão | Mínimo | Máximo |
+| --- | --- | --- | --- | --- | --- |
+| Estrelas | 9397.2996 | 5765.5000 | 10698.5335 | 3474.0000 | 124039.0000 |
+| Idade (anos) | 10.0959 | 10.2650 | 3.1762 | 0.5100 | 17.4300 |
+| Releases | 40.4370 | 11.0000 | 89.0187 | 0.0000 | 1000.0000 |
+| LOC do Repositório | 119470.2087 | 17821.5000 | 442849.2105 | 2.0000 | 10752314.0000 |
+| Linhas de Comentários | 45291.3657 | 4975.5000 | 409534.7392 | 0.0000 | 12466809.0000 |
+| CBO (média por repositório) | 5.3769 | 5.3263 | 1.8586 | 0.0000 | 21.8935 |
+| DIT (média por repositório) | 1.4565 | 1.3938 | 0.3519 | 1.0000 | 4.3880 |
+| LCOM (média por repositório) | 119.3475 | 24.5527 | 1744.2995 | 0.0000 | 54025.1128 |
 
 Medianas de referência do dataset analisado:
 - Estrelas: 5765.5
@@ -99,35 +99,35 @@ Medianas de referência do dataset analisado:
 ### 3.3 Correlações por RQ
 
 #### RQ01 - Popularidade vs Qualidade
-| rq   | process_metric   | process_label           | quality_metric   |   n |   spearman_corr |   spearman_pvalue |   pearson_corr |   pearson_pvalue |
-|------|------------------|-------------------------|------------------|-----|-----------------|-------------------|----------------|------------------|
-| RQ01 | stars            | Popularidade (estrelas) | cbo_mean         | 968 |        0.030986 |          0.335532 |      -0.128224 |         6.3e-05  |
-| RQ01 | stars            | Popularidade (estrelas) | dit_mean         | 968 |       -0.044667 |          0.164949 |      -0.114641 |         0.000352 |
-| RQ01 | stars            | Popularidade (estrelas) | lcom_mean        | 968 |        0.05423  |          0.091736 |       0.020961 |         0.514792 |
+| Métrica de Qualidade | Spearman (rho) | p-valor Spearman | Pearson (r) | p-valor Pearson |
+| --- | --- | --- | --- | --- |
+| CBO (média) | 0.031 | 0.3355 | -0.128 | 6.30e-05 |
+| DIT (média) | -0.045 | 0.1649 | -0.115 | 3.52e-04 |
+| LCOM (média) | 0.054 | 0.0917 | 0.021 | 0.5148 |
 
 #### RQ02 - Maturidade vs Qualidade
-| rq   | process_metric   | process_label              | quality_metric   |   n |   spearman_corr |   spearman_pvalue |   pearson_corr |   pearson_pvalue |
-|------|------------------|----------------------------|------------------|-----|-----------------|-------------------|----------------|------------------|
-| RQ02 | age_years        | Maturidade (idade em anos) | cbo_mean         | 968 |        0.006898 |          0.830279 |       0.010379 |         0.747066 |
-| RQ02 | age_years        | Maturidade (idade em anos) | dit_mean         | 968 |        0.28829  |          0        |       0.191467 |         0        |
-| RQ02 | age_years        | Maturidade (idade em anos) | lcom_mean        | 968 |        0.199031 |          0        |       0.029765 |         0.354929 |
+| Métrica de Qualidade | Spearman (rho) | p-valor Spearman | Pearson (r) | p-valor Pearson |
+| --- | --- | --- | --- | --- |
+| CBO (média) | 0.007 | 0.8303 | 0.010 | 0.7471 |
+| DIT (média) | 0.288 | <0.0001 | 0.191 | <0.0001 |
+| LCOM (média) | 0.199 | <0.0001 | 0.030 | 0.3549 |
 
 #### RQ03 - Atividade vs Qualidade
-| rq   | process_metric   | process_label                  | quality_metric   |   n |   spearman_corr |   spearman_pvalue |   pearson_corr |   pearson_pvalue |
-|------|------------------|--------------------------------|------------------|-----|-----------------|-------------------|----------------|------------------|
-| RQ03 | releases         | Atividade (número de releases) | cbo_mean         | 968 |        0.396713 |                 0 |       0.207094 |         0        |
-| RQ03 | releases         | Atividade (número de releases) | dit_mean         | 968 |        0.202014 |                 0 |       0.051312 |         0.110616 |
-| RQ03 | releases         | Atividade (número de releases) | lcom_mean        | 968 |        0.326236 |                 0 |      -0.012797 |         0.690891 |
+| Métrica de Qualidade | Spearman (rho) | p-valor Spearman | Pearson (r) | p-valor Pearson |
+| --- | --- | --- | --- | --- |
+| CBO (média) | 0.397 | <0.0001 | 0.207 | <0.0001 |
+| DIT (média) | 0.202 | <0.0001 | 0.051 | 0.1106 |
+| LCOM (média) | 0.326 | <0.0001 | -0.013 | 0.6909 |
 
 #### RQ04 - Tamanho vs Qualidade
-| rq            | process_metric     | process_label                   | quality_metric   |   n |   spearman_corr |   spearman_pvalue |   pearson_corr |   pearson_pvalue |
-|---------------|--------------------|---------------------------------|------------------|-----|-----------------|-------------------|----------------|------------------|
-| RQ04_LOC      | repo_loc           | Tamanho (LOC do repositório)    | cbo_mean         | 968 |        0.427861 |                 0 |       0.189603 |         0        |
-| RQ04_LOC      | repo_loc           | Tamanho (LOC do repositório)    | dit_mean         | 968 |        0.241372 |                 0 |       0.037336 |         0.245835 |
-| RQ04_LOC      | repo_loc           | Tamanho (LOC do repositório)    | lcom_mean        | 968 |        0.461183 |                 0 |       0.062647 |         0.051355 |
-| RQ04_COMMENTS | repo_comment_lines | Tamanho (linhas de comentários) | cbo_mean         | 968 |        0.39944  |                 0 |       0.074604 |         0.020267 |
-| RQ04_COMMENTS | repo_comment_lines | Tamanho (linhas de comentários) | dit_mean         | 968 |        0.21634  |                 0 |      -0.00241  |         0.940316 |
-| RQ04_COMMENTS | repo_comment_lines | Tamanho (linhas de comentários) | lcom_mean        | 968 |        0.43573  |                 0 |       0.021192 |         0.510177 |
+| Métrica de Qualidade | Spearman (rho) | p-valor Spearman | Pearson (r) | p-valor Pearson |
+| --- | --- | --- | --- | --- |
+| CBO (média) | 0.428 | <0.0001 | 0.190 | <0.0001 |
+| DIT (média) | 0.241 | <0.0001 | 0.037 | 0.2458 |
+| LCOM (média) | 0.461 | <0.0001 | 0.063 | 0.0514 |
+| CBO (média) | 0.399 | <0.0001 | 0.075 | 0.0203 |
+| DIT (média) | 0.216 | <0.0001 | -0.002 | 0.9403 |
+| LCOM (média) | 0.436 | <0.0001 | 0.021 | 0.5102 |
 
 ### 3.4 Gráficos Gerados
 

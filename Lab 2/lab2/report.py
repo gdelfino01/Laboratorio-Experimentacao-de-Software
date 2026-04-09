@@ -7,7 +7,19 @@ from pandas.errors import EmptyDataError
 def _format_df_markdown(df: pd.DataFrame) -> str:
     if df.empty:
         return "_Sem dados disponíveis para esta seção._"
-    return df.to_markdown(index=False)
+    headers = [str(column) for column in df.columns]
+    separator = ["---"] * len(headers)
+
+    lines = [
+        "| " + " | ".join(headers) + " |",
+        "| " + " | ".join(separator) + " |",
+    ]
+
+    for _, row in df.iterrows():
+        values = [str(row[column]) for column in df.columns]
+        lines.append("| " + " | ".join(values) + " |")
+
+    return "\n".join(lines)
 
 
 def _load_csv(path: Path) -> pd.DataFrame:
@@ -67,6 +79,98 @@ def _format_num(value: float | None, digits: int = 3) -> str:
     if value is None:
         return "N/A"
     return f"{value:.{digits}f}"
+
+
+def _format_pvalue(value: float | None) -> str:
+    if value is None:
+        return "N/A"
+    if value == 0:
+        return "<0.0001"
+    if value < 0.001:
+        return f"{value:.2e}"
+    return f"{value:.4f}"
+
+
+def _prepare_summary_table(summary_df: pd.DataFrame) -> pd.DataFrame:
+    if summary_df.empty:
+        return summary_df
+
+    df = summary_df.copy()
+    metric_labels = {
+        "stars": "Estrelas",
+        "age_years": "Idade (anos)",
+        "releases": "Releases",
+        "repo_loc": "LOC do Repositório",
+        "repo_comment_lines": "Linhas de Comentários",
+        "cbo_mean": "CBO (média por repositório)",
+        "dit_mean": "DIT (média por repositório)",
+        "lcom_mean": "LCOM (média por repositório)",
+    }
+    df["metric"] = df["metric"].map(metric_labels).fillna(df["metric"])
+
+    rename_map = {
+        "metric": "Métrica",
+        "n": "Repositórios",
+        "mean": "Média",
+        "median": "Mediana",
+        "stdev": "Desvio Padrão",
+        "min": "Mínimo",
+        "max": "Máximo",
+    }
+    df = df.rename(columns=rename_map)
+
+    for column in ["Média", "Mediana", "Desvio Padrão", "Mínimo", "Máximo"]:
+        if column in df.columns:
+            df[column] = pd.to_numeric(df[column], errors="coerce").map(
+                lambda value: "N/A" if pd.isna(value) else f"{value:.4f}"
+            )
+
+    if "Repositórios" in df.columns:
+        df["Repositórios"] = pd.to_numeric(df["Repositórios"], errors="coerce").fillna(0).astype(int)
+
+    return df[["Métrica", "Repositórios", "Média", "Mediana", "Desvio Padrão", "Mínimo", "Máximo"]]
+
+
+def _prepare_rq_table(rq_df: pd.DataFrame) -> pd.DataFrame:
+    if rq_df.empty:
+        return rq_df
+
+    df = rq_df.copy()
+    quality_labels = {
+        "cbo_mean": "CBO (média)",
+        "dit_mean": "DIT (média)",
+        "lcom_mean": "LCOM (média)",
+    }
+    df["quality_metric"] = df["quality_metric"].map(quality_labels).fillna(df["quality_metric"])
+
+    df["spearman_corr"] = pd.to_numeric(df["spearman_corr"], errors="coerce").map(
+        lambda value: "N/A" if pd.isna(value) else f"{value:.3f}"
+    )
+    df["pearson_corr"] = pd.to_numeric(df["pearson_corr"], errors="coerce").map(
+        lambda value: "N/A" if pd.isna(value) else f"{value:.3f}"
+    )
+    df["spearman_pvalue"] = pd.to_numeric(df["spearman_pvalue"], errors="coerce").map(_format_pvalue)
+    df["pearson_pvalue"] = pd.to_numeric(df["pearson_pvalue"], errors="coerce").map(_format_pvalue)
+
+    df = df.rename(
+        columns={
+            "quality_metric": "Métrica de Qualidade",
+            "spearman_corr": "Spearman (rho)",
+            "spearman_pvalue": "p-valor Spearman",
+            "pearson_corr": "Pearson (r)",
+            "pearson_pvalue": "p-valor Pearson",
+        }
+    )
+
+    return df[
+        [
+            "Métrica de Qualidade",
+            "Spearman (rho)",
+            "p-valor Spearman",
+            "Pearson (r)",
+            "p-valor Pearson",
+        ]
+    ]
 
 
 def _rq_findings_text(df: pd.DataFrame, rq_label: str) -> str:
@@ -209,6 +313,12 @@ def generate_final_report(
         correlations_df.get("rq", "").isin(["RQ04_LOC", "RQ04_COMMENTS"])
     ] if not correlations_df.empty else pd.DataFrame()
 
+    summary_table_df = _prepare_summary_table(summary_df)
+    rq01_table_df = _prepare_rq_table(rq01_df)
+    rq02_table_df = _prepare_rq_table(rq02_df)
+    rq03_table_df = _prepare_rq_table(rq03_df)
+    rq04_table_df = _prepare_rq_table(rq04_df)
+
     rq01_findings = _rq_findings_text(rq01_df, "RQ01")
     rq02_findings = _rq_findings_text(rq02_df, "RQ02")
     rq03_findings = _rq_findings_text(rq03_df, "RQ03")
@@ -335,7 +445,7 @@ def generate_final_report(
         "### 3.2 Resultados Tabulares",
         "",
         "Resumo descritivo global:",
-        _format_df_markdown(summary_df),
+        _format_df_markdown(summary_table_df),
         "",
         "Medianas de referência do dataset analisado:",
         f"- Estrelas: {_format_num(stars_median, 1)}",
@@ -350,16 +460,16 @@ def generate_final_report(
         "### 3.3 Correlações por RQ",
         "",
         "#### RQ01 - Popularidade vs Qualidade",
-        _format_df_markdown(rq01_df),
+        _format_df_markdown(rq01_table_df),
         "",
         "#### RQ02 - Maturidade vs Qualidade",
-        _format_df_markdown(rq02_df),
+        _format_df_markdown(rq02_table_df),
         "",
         "#### RQ03 - Atividade vs Qualidade",
-        _format_df_markdown(rq03_df),
+        _format_df_markdown(rq03_table_df),
         "",
         "#### RQ04 - Tamanho vs Qualidade",
-        _format_df_markdown(rq04_df),
+        _format_df_markdown(rq04_table_df),
         "",
         "### 3.4 Gráficos Gerados",
         "",
