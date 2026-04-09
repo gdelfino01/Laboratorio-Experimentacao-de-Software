@@ -60,3 +60,12 @@ htmlcov/
 
 # CSV files
 *.csv
+!repositorios.csv
+!output/*.csv
+!output/**/*.csv
+
+# Generated working trees and cloned repositories
+w/
+workspace/
+tools/ck/
+output/*/

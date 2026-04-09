@@ -10,6 +10,47 @@ from typing import Any, Dict, Iterable, List, Optional
 from .io_utils import run_subprocess, sanitize_repo_name
 
 
+FINAL_METRICS_FIELDNAMES = [
+    "rank",
+    "nameWithOwner",
+    "url",
+    "stars",
+    "forks",
+    "watchers",
+    "releases",
+    "created_at",
+    "age_years",
+    "repository",
+    "class_csv",
+    "classes_analyzed",
+    "repo_loc",
+    "repo_comment_lines",
+    "repo_comment_density",
+    "cbo_mean",
+    "cbo_median",
+    "cbo_stdev",
+    "cbo_min",
+    "cbo_max",
+    "dit_mean",
+    "dit_median",
+    "dit_stdev",
+    "dit_min",
+    "dit_max",
+    "lcom_mean",
+    "lcom_median",
+    "lcom_stdev",
+    "lcom_min",
+    "lcom_max",
+    "loc_mean",
+    "loc_median",
+    "loc_stdev",
+    "loc_min",
+    "loc_max",
+    "status",
+    "error",
+]
+
+
 def resolve_maven_command(ck_repo_dir: Path) -> List[str]:
     env_maven = os.getenv("MAVEN_CMD", "").strip()
     if env_maven:
@@ -109,6 +150,93 @@ def run_ck(
             str(output_dir),
         ]
     )
+
+
+def _is_java_source(file_path: Path) -> bool:
+    return file_path.is_file() and file_path.suffix.lower() == ".java"
+
+
+def count_java_loc_and_comments(project_dir: Path) -> Dict[str, int]:
+    total_loc = 0
+    total_comment_lines = 0
+    in_block_comment = False
+
+    for file_path in project_dir.rglob("*.java"):
+        if not _is_java_source(file_path):
+            continue
+
+        try:
+            with file_path.open("r", encoding="utf-8", errors="ignore") as source_file:
+                for line in source_file:
+                    stripped = line.strip()
+                    if not stripped:
+                        continue
+
+                    if in_block_comment:
+                        total_comment_lines += 1
+                        if "*/" in stripped:
+                            in_block_comment = False
+                        continue
+
+                    if stripped.startswith("//"):
+                        total_comment_lines += 1
+                        continue
+
+                    if stripped.startswith("/*"):
+                        total_comment_lines += 1
+                        if "*/" not in stripped:
+                            in_block_comment = True
+                        continue
+
+                    if "/*" in stripped:
+                        total_loc += 1
+                        total_comment_lines += 1
+                        if "*/" not in stripped.split("/*", 1)[1]:
+                            in_block_comment = True
+                        continue
+
+                    total_loc += 1
+        except OSError:
+            # Ignora arquivos que não puderem ser lidos para não interromper o lote.
+            continue
+
+    return {
+        "repo_loc": total_loc,
+        "repo_comment_lines": total_comment_lines,
+    }
+
+
+def append_csv_row(file_path: Path, row: Dict[str, Any], fieldnames: List[str]) -> None:
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+    file_exists = file_path.exists()
+
+    prepared_row = {field: row.get(field, "") for field in fieldnames}
+
+    with file_path.open("a", newline="", encoding="utf-8") as file:
+        writer = csv.DictWriter(file, fieldnames=fieldnames)
+        if not file_exists:
+            writer.writeheader()
+        writer.writerow(prepared_row)
+
+
+def load_processed_repositories(final_csv_path: Path) -> set[str]:
+    if not final_csv_path.exists():
+        return set()
+
+    processed: set[str] = set()
+    with final_csv_path.open("r", newline="", encoding="utf-8") as file:
+        reader = csv.DictReader(file)
+        for row in reader:
+            name = (row.get("nameWithOwner") or "").strip()
+            status = (row.get("status") or "").strip().lower()
+            if name and status == "success":
+                processed.add(name)
+    return processed
+
+
+def safe_float(value: Any) -> Optional[float]:
+    parsed = to_float(value)
+    return None if parsed is None else float(parsed)
 
 
 def find_ck_class_csv(output_dir: Path) -> Path:
@@ -269,3 +397,157 @@ def measure_one_repository(
         print(f" - {key}: {value}")
 
     return summary
+
+
+def measure_all_repositories(
+    repos_csv_path: Path,
+    output_dir: Path,
+    workspace_dir: Path,
+    ck_repo_dir: Path,
+    force_rebuild_ck: bool = False,
+    limit: Optional[int] = None,
+    resume: bool = True,
+    refresh_clone: bool = False,
+) -> Dict[str, Any]:
+    if not repos_csv_path.exists():
+        raise FileNotFoundError(f"Arquivo de repositórios não encontrado: {repos_csv_path}")
+
+    final_csv_path = output_dir / "repo_metrics_1000.csv"
+    failures_csv_path = output_dir / "repo_failures.csv"
+
+    processed_repositories = load_processed_repositories(final_csv_path) if resume else set()
+
+    with repos_csv_path.open("r", newline="", encoding="utf-8") as repos_file:
+        reader = csv.DictReader(repos_file)
+        repositories = list(reader)
+
+    if limit is not None and limit > 0:
+        repositories = repositories[:limit]
+
+    ck_jar = ensure_ck_jar(ck_repo_dir=ck_repo_dir, force_rebuild=force_rebuild_ck)
+
+    success_count = 0
+    failed_count = 0
+    skipped_count = 0
+
+    for index, repo_row in enumerate(repositories, start=1):
+        name_with_owner = (repo_row.get("nameWithOwner") or "").strip()
+        repo_url = (repo_row.get("url") or "").strip()
+
+        if not name_with_owner or not repo_url:
+            failed_count += 1
+            failure_row = {
+                "nameWithOwner": name_with_owner,
+                "url": repo_url,
+                "status": "failed",
+                "error": "Linha inválida no CSV de repositórios.",
+            }
+            append_csv_row(
+                failures_csv_path,
+                failure_row,
+                ["nameWithOwner", "url", "status", "error"],
+            )
+            continue
+
+        if name_with_owner in processed_repositories:
+            skipped_count += 1
+            print(f"[{index}/{len(repositories)}] Pulando {name_with_owner} (já processado).")
+            continue
+
+        print(f"[{index}/{len(repositories)}] Processando {name_with_owner}...")
+
+        repo_slug = sanitize_repo_name(name_with_owner)
+        cloned_repo_dir = workspace_dir / repo_slug
+        repo_output_dir = output_dir / repo_slug
+        ck_output_dir = repo_output_dir / "ck_raw"
+        summary_output_path = repo_output_dir / "repo_metrics_summary.csv"
+
+        base_row: Dict[str, Any] = {
+            "rank": repo_row.get("rank", ""),
+            "nameWithOwner": name_with_owner,
+            "url": repo_url,
+            "stars": repo_row.get("stars", ""),
+            "forks": repo_row.get("forks", ""),
+            "watchers": repo_row.get("watchers", ""),
+            "releases": repo_row.get("releases", ""),
+            "created_at": repo_row.get("created_at", ""),
+            "age_years": repo_row.get("age_years", ""),
+            "status": "failed",
+            "error": "",
+        }
+
+        try:
+            clone_repository(
+                repo_url=repo_url,
+                destination=cloned_repo_dir,
+                refresh=refresh_clone,
+            )
+
+            size_metrics = count_java_loc_and_comments(cloned_repo_dir)
+            repo_loc = size_metrics["repo_loc"]
+            repo_comment_lines = size_metrics["repo_comment_lines"]
+            total_lines = repo_loc + repo_comment_lines
+            repo_comment_density = round(repo_comment_lines / total_lines, 6) if total_lines > 0 else 0.0
+
+            run_ck(ck_jar=ck_jar, project_dir=cloned_repo_dir, output_dir=ck_output_dir)
+
+            class_csv_path = find_ck_class_csv(ck_output_dir)
+            summary = summarize_ck_metrics(
+                class_csv_path=class_csv_path,
+                repository_name=name_with_owner,
+                summary_output_path=summary_output_path,
+            )
+
+            result_row = {
+                **base_row,
+                **summary,
+                "repo_loc": repo_loc,
+                "repo_comment_lines": repo_comment_lines,
+                "repo_comment_density": repo_comment_density,
+                "status": "success",
+                "error": "",
+            }
+            append_csv_row(final_csv_path, result_row, FINAL_METRICS_FIELDNAMES)
+            success_count += 1
+
+        except Exception as exc:
+            error_message = str(exc)
+            result_row = {
+                **base_row,
+                "repo_loc": "",
+                "repo_comment_lines": "",
+                "repo_comment_density": "",
+                "repository": name_with_owner,
+                "class_csv": "",
+                "classes_analyzed": "",
+                "status": "failed",
+                "error": error_message,
+            }
+            append_csv_row(final_csv_path, result_row, FINAL_METRICS_FIELDNAMES)
+            append_csv_row(
+                failures_csv_path,
+                {
+                    "nameWithOwner": name_with_owner,
+                    "url": repo_url,
+                    "status": "failed",
+                    "error": error_message,
+                },
+                ["nameWithOwner", "url", "status", "error"],
+            )
+            failed_count += 1
+            print(f"   Falha em {name_with_owner}: {error_message}")
+
+    summary_result = {
+        "total_input": len(repositories),
+        "success": success_count,
+        "failed": failed_count,
+        "skipped": skipped_count,
+        "final_csv": str(final_csv_path),
+        "failures_csv": str(failures_csv_path),
+    }
+
+    print("\nResumo da execução em lote:")
+    for key, value in summary_result.items():
+        print(f" - {key}: {value}")
+
+    return summary_result

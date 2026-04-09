@@ -1,64 +1,95 @@
-# Lab 2 - Sprint 1: Coleta de Repositórios Java
+# Lab 2 - Coleta, Medição, Análise e Relatório Final
 
-## 📋 Objetivo
+## Objetivo
 
-Coletar os **1.000 repositórios Java mais populares** do GitHub usando GraphQL API, extraindo dados para análise de qualidade de software.
+Este projeto executa o pipeline completo do laboratório:
 
-## 🚀 Como Executar
+1. Coleta dos top-1000 repositórios Java do GitHub.
+2. Medição de qualidade por repositório com CK (CBO, DIT, LCOM).
+3. Sumarização por repositório (média, mediana, desvio padrão).
+4. Análise estatística das RQs com Spearman e Pearson.
+5. Geração de gráficos de correlação.
+6. Geração automática do relatório final em Markdown.
 
-### 1. Instalar dependências
+## Pré-requisitos
+
+- Python 3.10+
+- Java 11+ (para rodar o CK)
+- Git
+- Token GitHub com acesso à API GraphQL no arquivo `.env`:
+
+```env
+GITHUB_TOKEN="seu_token_aqui"
+```
+
+## Instalação
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. Executar coleta
+## Comandos principais
+
+### 1. Coletar os 1000 repositórios
 
 ```bash
-python main.py
+python main.py collect-repos --total 1000 --output repositorios.csv
 ```
 
-### 3. Resultado
+### 2. Medir todos os repositórios com CK
 
-Um arquivo `repositorios.csv` será gerado com 1.000 linhas contendo:
+```bash
+python main.py measure-all-repos --repos-csv repositorios.csv
+```
 
-| Campo | Tipo | Descrição |
-|-------|------|-----------|
-| `rank` | int | Posição na lista (1-1000) |
-| `nameWithOwner` | str | Nome do repositório (dono/repo) |
-| `url` | str | Link direto no GitHub |
-| `stars` | int | Número de estrelas (RQ 01) |
-| `forks` | int | Número de forks |
-| `watchers` | int | Número de watchers |
-| `releases` | int | Número de releases (RQ 03) |
-| `created_at` | str | Data de criação (ISO) |
-| `age_years` | float | Idade em anos (RQ 02) |
+Opções úteis:
 
-## ⏱️ Tempo de Execução
+- `--limit 20`: executa amostra para teste rápido.
+- `--no-resume`: desativa retomada por checkpoint.
+- `--refresh-clone`: força novo clone.
+- `--force-rebuild-ck`: recompila CK.
 
-- **Requisições**: ~40 (1.000 repos ÷ 25 por página)
-- **Rate Limit Consumido**: ~250 pontos de 1.000
-- **Tempo Estimado**: 5-10 minutos
+### 3. Rodar análise estatística e gerar gráficos
 
-## 📊 Dados Coletados
+```bash
+python main.py analyze-data --dataset-csv output/repo_metrics_1000.csv
+```
 
-- **Repositórios**: Top 1.000 Java mais populares
-- **Filtro**: `language:Java stars:>100 sort:stars-desc`
-- **Exclusões**: Arquivos, forks
+### 4. Gerar relatório final
 
-## 🔧 Infraestrutura
+```bash
+python main.py generate-report \
+	--dataset-csv output/repo_metrics_1000.csv \
+	--summary-csv output/rq_summary_stats.csv \
+	--correlations-csv output/rq_correlations.csv \
+	--output-report RELATORIO_FINAL.md
+```
 
-- **GraphQL Endpoint**: `https://api.github.com/graphql`
-- **Autenticação**: Token do GitHub (`.env`)
-- **Retry**: Backoff exponencial (2^n segundos) com máx 5 tentativas
-- **Paginação**: Cursor-based
+### 5. Pipeline completo (fim a fim)
 
-## 📝 Próximas Etapas
+```bash
+python main.py run-all --total 1000
+```
 
-- Sprint 1.5: Clone dos 1.000 repositórios *(seu colega)*
-- Sprint 2: Análise com CK tool *(seu colega)*
-- Sprint 3: Análise estatística + Relatório final
+## Arquivos gerados
 
----
+- `repositorios.csv`: top-1000 repositórios Java e métricas de processo.
+- `output/repo_metrics_1000.csv`: dataset consolidado por repositório (processo + qualidade + tamanho).
+- `output/repo_failures.csv`: falhas de processamento.
+- `output/rq_summary_stats.csv`: estatísticas descritivas globais.
+- `output/rq_correlations.csv`: correlações Spearman/Pearson por RQ.
+- `output/figures/*.png`: gráficos de dispersão e heatmap de correlação.
+- `RELATORIO_FINAL.md`: relatório final para entrega.
 
-**Desenvolvido para**: Lab de Experimentação de Software - Sexto Período
+## Mapeamento das questões de pesquisa
+
+- RQ01: `stars` vs `cbo_mean`, `dit_mean`, `lcom_mean`
+- RQ02: `age_years` vs `cbo_mean`, `dit_mean`, `lcom_mean`
+- RQ03: `releases` vs `cbo_mean`, `dit_mean`, `lcom_mean`
+- RQ04: `repo_loc` e `repo_comment_lines` vs `cbo_mean`, `dit_mean`, `lcom_mean`
+
+## Observações
+
+- O processamento completo dos 1000 repositórios pode levar várias horas.
+- O pipeline é tolerante a falhas: erros individuais não interrompem o lote.
+- A saída consolidada contém coluna `status` para filtrar apenas `success` na análise.
