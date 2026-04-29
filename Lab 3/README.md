@@ -1,14 +1,17 @@
-# Lab 3
+# Lab 3 - Code Review Activity on GitHub
 
-1. Build the list of selected repositories.
-2. Create the pull request dataset with the required metrics.
+This folder now covers:
+- Sprint 1: repository selection + PR-level dataset collection
+- Sprint 2: complete dataset generation + first draft of the final report with initial hypotheses
 
-Repository selection constraints:
-- top popular repositories by stars
-- exactly target size (default: 200)
+## Dataset filters
+
+Repository constraints:
+- popular repositories ranked by stars
+- target size (default: 200)
 - each repository must have at least 100 PRs considering MERGED + CLOSED
 
-Pull request selection constraints:
+Pull request constraints:
 - state in {MERGED, CLOSED}
 - at least 1 review (`reviews.totalCount >= 1`)
 - review process took more than 1 hour (`final_activity_at - created_at > 1h`)
@@ -18,26 +21,17 @@ Metrics collected per PR:
 - analysis time: hours between creation and final activity
 - description: body length in characters (markdown text)
 - interactions: participants count, comments count
-- number of reviews: reviews count
-
-## Files
-
-- `main.py`: entrypoint
-- `lab3/cli.py`: command line interface
-- `lab3/config.py`: constants and GraphQL queries
-- `lab3/github_api.py`: GitHub GraphQL client with retry/backoff
-- `lab3/github_data.py`: data collection and filtering logic
-- `lab3/io_utils.py`: CSV read/write helpers
+- review volume: reviews count
 
 ## Setup
 
-1. Install dependencies:
+Install dependencies:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-2. Ensure token exists in `.env` (project root or Lab 3 root):
+Set token in `.env` (repo root or Lab 3 root):
 
 ```env
 GITHUB_TOKEN="your_token_here"
@@ -45,7 +39,9 @@ GITHUB_TOKEN="your_token_here"
 
 ## Commands
 
-### 1) Select repositories (default target: 200)
+### Sprint 1 commands
+
+Select repositories:
 
 ```bash
 python main.py collect-repos \
@@ -54,7 +50,7 @@ python main.py collect-repos \
   --output output/selected_repositories_top200.csv
 ```
 
-### 2) Collect PR dataset from selected repositories
+Collect PR dataset:
 
 ```bash
 python main.py collect-prs \
@@ -62,7 +58,7 @@ python main.py collect-prs \
   --output output/pull_requests_review_dataset.csv
 ```
 
-### 3) Run Sprint 1 end-to-end
+Run Sprint 1 end-to-end:
 
 ```bash
 python main.py sprint1 \
@@ -72,6 +68,30 @@ python main.py sprint1 \
   --prs-output output/pull_requests_review_dataset.csv
 ```
 
+### Sprint 2 commands
+
+Generate draft report from existing CSVs:
+
+```bash
+python main.py generate-report-draft \
+  --repos-csv output/selected_repositories_top200.csv \
+  --prs-csv output/pull_requests_review_dataset.csv \
+  --summary-output output/sprint2_summary_stats.csv \
+  --report-output RELATORIO.md
+```
+
+Run Sprint 2 end-to-end (collection + report draft):
+
+```bash
+python main.py sprint2 \
+  --target-repositories 200 \
+  --min-repo-prs 100 \
+  --selected-repos-output output/selected_repositories_top200.csv \
+  --prs-output output/pull_requests_review_dataset.csv \
+  --summary-output output/sprint2_summary_stats.csv \
+  --report-output RELATORIO.md
+```
+
 ## Useful optional args
 
 - `--search-query`: custom query to change repository scope
@@ -79,9 +99,9 @@ python main.py sprint1 \
 - `--repo-limit`: only on `collect-prs`, reads first N repositories from CSV
 - `--sleep-seconds`, `--repo-sleep-seconds`, `--pr-sleep-seconds`: request pacing
 
-## Output CSV schema
+## Output artifacts
 
-Selected repositories CSV (`selected_repositories_top200.csv`):
+Repository list CSV (`selected_repositories_top200.csv`):
 - `selection_rank`
 - `name_with_owner`
 - `url`
@@ -111,3 +131,18 @@ PR dataset CSV (`pull_requests_review_dataset.csv`):
 - `participants_count`
 - `comments_count`
 - `reviews_count`
+
+Sprint 2 summary CSV (`sprint2_summary_stats.csv`):
+- `group`
+- `metric`
+- `count`
+- `median`
+- `mean`
+- `min`
+- `max`
+
+Sprint 2 report draft (`RELATORIO.md`):
+- initial hypotheses (RQ01-RQ08)
+- methodology and filters
+- dataset coverage
+- median summaries for all PRs, MERGED and CLOSED

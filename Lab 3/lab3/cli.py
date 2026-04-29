@@ -3,6 +3,7 @@ import sys
 from pathlib import Path
 
 from .config import (
+    DEFAULT_DRAFT_REPORT_MD,
     DEFAULT_MIN_REPO_PRS,
     DEFAULT_PR_PAGE_SIZE,
     DEFAULT_PR_SLEEP_SECONDS,
@@ -11,18 +12,20 @@ from .config import (
     DEFAULT_REPO_SLEEP_SECONDS,
     DEFAULT_REPOSITORY_SEARCH_QUERY,
     DEFAULT_SELECTED_REPOS_CSV,
+    DEFAULT_SUMMARY_CSV,
     DEFAULT_TARGET_REPOSITORIES,
     PR_DATASET_FIELDS,
     REPOSITORY_SELECTION_FIELDS,
 )
 from .github_data import fetch_pull_requests_dataset, fetch_selected_repositories
 from .io_utils import load_csv, save_csv
+from .report import generate_draft_report
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Lab 3 - Sprint 1 only: repository selection and pull request dataset collection."
+            "Lab 3 pipeline: Sprint 1 collection and Sprint 2 draft report generation."
         )
     )
     subparsers = parser.add_subparsers(dest="command")
@@ -162,6 +165,100 @@ def parse_args() -> argparse.Namespace:
         default=DEFAULT_PRS_CSV,
     )
 
+    report_parser = subparsers.add_parser(
+        "generate-report-draft",
+        help="Generate Sprint 2 draft report with initial hypotheses and median summaries.",
+    )
+    report_parser.add_argument(
+        "--repos-csv",
+        type=Path,
+        default=DEFAULT_SELECTED_REPOS_CSV,
+        help="Selected repositories CSV.",
+    )
+    report_parser.add_argument(
+        "--prs-csv",
+        type=Path,
+        default=DEFAULT_PRS_CSV,
+        help="PR dataset CSV.",
+    )
+    report_parser.add_argument(
+        "--summary-output",
+        type=Path,
+        default=DEFAULT_SUMMARY_CSV,
+        help="Summary CSV output path.",
+    )
+    report_parser.add_argument(
+        "--report-output",
+        type=Path,
+        default=DEFAULT_DRAFT_REPORT_MD,
+        help="Markdown report output path.",
+    )
+
+    sprint2_parser = subparsers.add_parser(
+        "sprint2",
+        help="Run Sprint 2 end-to-end: collection + draft report generation.",
+    )
+    sprint2_parser.add_argument(
+        "--target-repositories",
+        type=int,
+        default=DEFAULT_TARGET_REPOSITORIES,
+    )
+    sprint2_parser.add_argument(
+        "--min-repo-prs",
+        type=int,
+        default=DEFAULT_MIN_REPO_PRS,
+    )
+    sprint2_parser.add_argument(
+        "--search-query",
+        default=DEFAULT_REPOSITORY_SEARCH_QUERY,
+    )
+    sprint2_parser.add_argument(
+        "--repo-page-size",
+        type=int,
+        default=DEFAULT_REPO_PAGE_SIZE,
+    )
+    sprint2_parser.add_argument(
+        "--pr-page-size",
+        type=int,
+        default=DEFAULT_PR_PAGE_SIZE,
+    )
+    sprint2_parser.add_argument(
+        "--repo-sleep-seconds",
+        type=float,
+        default=DEFAULT_REPO_SLEEP_SECONDS,
+    )
+    sprint2_parser.add_argument(
+        "--pr-sleep-seconds",
+        type=float,
+        default=DEFAULT_PR_SLEEP_SECONDS,
+    )
+    sprint2_parser.add_argument(
+        "--max-prs-per-repo",
+        type=int,
+        default=None,
+        help="Optional cap used only for smoke tests.",
+    )
+    sprint2_parser.add_argument(
+        "--selected-repos-output",
+        type=Path,
+        default=DEFAULT_SELECTED_REPOS_CSV,
+    )
+    sprint2_parser.add_argument(
+        "--prs-output",
+        type=Path,
+        default=DEFAULT_PRS_CSV,
+    )
+    sprint2_parser.add_argument(
+        "--summary-output",
+        type=Path,
+        default=DEFAULT_SUMMARY_CSV,
+    )
+    sprint2_parser.add_argument(
+        "--report-output",
+        type=Path,
+        default=DEFAULT_DRAFT_REPORT_MD,
+    )
+
     return parser.parse_args()
 
 
@@ -175,7 +272,7 @@ def run() -> None:
     args = parse_args()
 
     if not args.command:
-        print("Use one command: collect-repos, collect-prs, sprint1")
+        print("Use one command: collect-repos, collect-prs, sprint1, generate-report-draft, sprint2")
         sys.exit(1)
 
     try:
@@ -219,6 +316,44 @@ def run() -> None:
                 max_prs_per_repo=args.max_prs_per_repo,
             )
             save_csv(dataset, args.prs_output, PR_DATASET_FIELDS)
+            return
+
+        if args.command == "generate-report-draft":
+            selected_repositories = load_csv(args.repos_csv)
+            dataset_rows = load_csv(args.prs_csv)
+
+            generate_draft_report(
+                dataset_rows=dataset_rows,
+                selected_repositories=selected_repositories,
+                summary_csv_path=args.summary_output,
+                report_output_path=args.report_output,
+            )
+            return
+
+        if args.command == "sprint2":
+            repositories = fetch_selected_repositories(
+                target_repositories=args.target_repositories,
+                min_repo_prs=args.min_repo_prs,
+                page_size=args.repo_page_size,
+                search_query=args.search_query,
+                sleep_seconds=args.repo_sleep_seconds,
+            )
+            save_csv(repositories, args.selected_repos_output, REPOSITORY_SELECTION_FIELDS)
+
+            dataset = fetch_pull_requests_dataset(
+                selected_repositories=repositories,
+                pr_page_size=args.pr_page_size,
+                sleep_seconds=args.pr_sleep_seconds,
+                max_prs_per_repo=args.max_prs_per_repo,
+            )
+            save_csv(dataset, args.prs_output, PR_DATASET_FIELDS)
+
+            generate_draft_report(
+                dataset_rows=dataset,
+                selected_repositories=repositories,
+                summary_csv_path=args.summary_output,
+                report_output_path=args.report_output,
+            )
             return
 
         raise RuntimeError(f"Unsupported command: {args.command}")
