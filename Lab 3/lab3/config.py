@@ -9,6 +9,7 @@ GRAPHQL_URL = "https://api.github.com/graphql"
 DEFAULT_OUTPUT_DIR = Path("output")
 DEFAULT_SELECTED_REPOS_CSV = DEFAULT_OUTPUT_DIR / "selected_repositories_top200.csv"
 DEFAULT_PRS_CSV = DEFAULT_OUTPUT_DIR / "pull_requests_review_dataset.csv"
+DEFAULT_REPO_FAILURES_CSV = DEFAULT_OUTPUT_DIR / "repo_failures.csv"
 DEFAULT_SUMMARY_CSV = DEFAULT_OUTPUT_DIR / "sprint2_summary_stats.csv"
 DEFAULT_DRAFT_REPORT_MD = Path("RELATORIO.md")
 

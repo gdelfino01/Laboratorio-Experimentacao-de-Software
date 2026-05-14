@@ -1,8 +1,16 @@
+import csv
 import time
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
-from .config import PULL_REQUESTS_QUERY, REPOSITORY_SELECTION_QUERY
+from .config import (
+    DEFAULT_PRS_CSV,
+    DEFAULT_REPO_FAILURES_CSV,
+    PR_DATASET_FIELDS,
+    PULL_REQUESTS_QUERY,
+    REPOSITORY_SELECTION_QUERY,
+)
 from .github_api import run_query
 
 
@@ -83,8 +91,11 @@ def fetch_selected_repositories(
             seen_names.add(name_with_owner)
             scanned += 1
 
-            merged_prs = _safe_int(node.get("mergedPullRequests", {}).get("totalCount"))
-            closed_prs = _safe_int(node.get("closedPullRequests", {}).get("totalCount"))
+            merged_prs_data = node.get("mergedPullRequests") or {}
+            merged_prs = _safe_int(merged_prs_data.get("totalCount"))
+            
+            closed_prs_data = node.get("closedPullRequests") or {}
+            closed_prs = _safe_int(closed_prs_data.get("totalCount"))
             total_prs = merged_prs + closed_prs
 
             if total_prs < min_repo_prs:
@@ -135,7 +146,8 @@ def fetch_selected_repositories(
 
 
 def _build_pr_row(repo: Dict[str, Any], pr: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    reviews_count = _safe_int(pr.get("reviews", {}).get("totalCount"))
+    reviews_data = pr.get("reviews") or {}
+    reviews_count = _safe_int(reviews_data.get("totalCount"))
     if reviews_count < 1:
         return None
 
@@ -164,10 +176,26 @@ def _build_pr_row(repo: Dict[str, Any], pr: Dict[str, Any]) -> Optional[Dict[str
         "deletions": deletions,
         "total_lines_changed": additions + deletions,
         "description_length": len(pr.get("body") or ""),
-        "participants_count": _safe_int(pr.get("participants", {}).get("totalCount")),
-        "comments_count": _safe_int(pr.get("comments", {}).get("totalCount")),
+        "participants_count": _safe_int((pr.get("participants") or {}).get("totalCount")),
+        "comments_count": _safe_int((pr.get("comments") or {}).get("totalCount")),
         "reviews_count": reviews_count,
     }
+
+
+def _append_failure_row(failure_path: Path, repo_name: str, error_message: str) -> None:
+    failure_path = Path(failure_path)
+    failure_path.parent.mkdir(parents=True, exist_ok=True)
+    write_header = not failure_path.exists()
+
+    with failure_path.open("a", newline="", encoding="utf-8") as file:
+        writer = csv.DictWriter(
+            file,
+            fieldnames=["repo_name_with_owner", "error_message"],
+            extrasaction="ignore",
+        )
+        if write_header:
+            writer.writeheader()
+        writer.writerow({"repo_name_with_owner": repo_name, "error_message": error_message})
 
 
 def fetch_pull_requests_dataset(
@@ -175,74 +203,149 @@ def fetch_pull_requests_dataset(
     pr_page_size: int,
     sleep_seconds: float,
     max_prs_per_repo: Optional[int] = None,
+    output_path: Optional[Path] = None,
+    checkpoint_path: Optional[Path] = None,
+    failure_path: Optional[Path] = None,
 ) -> List[Dict[str, Any]]:
+    """Fetch PR dataset with optional incremental saving and checkpointing.
+
+    This writes per-repo results to `output_path` after each repository is
+    processed and stores processed repository names in `checkpoint_path`.
+    If a checkpoint file exists, already-processed repositories are skipped.
+    """
+
     dataset: List[Dict[str, Any]] = []
 
-    for repo in selected_repositories:
-        name_with_owner = repo.get("name_with_owner") or repo.get("nameWithOwner")
-        if not name_with_owner:
-            continue
+    output_path = Path(output_path) if output_path is not None else Path(DEFAULT_PRS_CSV)
+    checkpoint_path = Path(checkpoint_path) if checkpoint_path is not None else (output_path.parent / "checkpoint_prs.txt")
+    failure_path = Path(failure_path) if failure_path is not None else Path(DEFAULT_REPO_FAILURES_CSV)
 
-        owner, name = split_name_with_owner(name_with_owner)
-        seen_pr_numbers = set()
-        kept_for_repo = 0
+    # Load checkpointed repo names (if any)
+    processed_repos = set()
+    if checkpoint_path.exists():
+        try:
+            with checkpoint_path.open("r", encoding="utf-8") as f:
+                for ln in f:
+                    name = ln.strip()
+                    if name:
+                        processed_repos.add(name)
+        except Exception:
+            # ignore and start fresh
+            processed_repos = set()
 
-        print(f"Collecting PRs for {name_with_owner}...")
+    # Prepare CSV file: write header if not exists
+    write_header = not output_path.exists()
+    ensure_parent = output_path.parent
+    ensure_parent.mkdir(parents=True, exist_ok=True)
+    csv_file = open(output_path, "a", newline="", encoding="utf-8")
+    csv_writer = csv.DictWriter(csv_file, fieldnames=PR_DATASET_FIELDS, extrasaction="ignore")
+    if write_header:
+        csv_writer.writeheader()
 
-        for state in ("MERGED", "CLOSED"):
-            cursor = None
+    try:
+        for repo in selected_repositories:
+            name_with_owner = repo.get("name_with_owner") or repo.get("nameWithOwner")
+            if not name_with_owner:
+                continue
 
-            while True:
-                if max_prs_per_repo is not None and kept_for_repo >= max_prs_per_repo:
-                    break
+            # skip if already processed according to checkpoint
+            if name_with_owner in processed_repos:
+                print(f"Skipping (checkpoint) {name_with_owner}...")
+                continue
 
-                variables = {
-                    "owner": owner,
-                    "name": name,
-                    "state": state,
-                    "pageSize": pr_page_size,
-                    "cursor": cursor,
-                }
+            try:
+                owner, name = split_name_with_owner(name_with_owner)
+                seen_pr_numbers = set()
+                kept_for_repo = 0
 
-                data = run_query(PULL_REQUESTS_QUERY, variables)
-                repo_data = data.get("data", {}).get("repository")
-                if not repo_data:
-                    print(f"   Skipping {name_with_owner}: repository data unavailable")
-                    break
+                print(f"Collecting PRs for {name_with_owner}...")
+                repo_rows: List[Dict[str, Any]] = []
+                for state in ("MERGED", "CLOSED"):
+                    cursor = None
 
-                pr_connection = repo_data["pullRequests"]
-                nodes = pr_connection.get("nodes", [])
+                    while True:
+                        if max_prs_per_repo is not None and kept_for_repo >= max_prs_per_repo:
+                            break
 
-                for pr in nodes:
-                    if not pr:
-                        continue
+                        variables = {
+                            "owner": owner,
+                            "name": name,
+                            "state": state,
+                            "pageSize": pr_page_size,
+                            "cursor": cursor,
+                        }
 
-                    pr_number = _safe_int(pr.get("number"))
-                    if pr_number in seen_pr_numbers:
-                        continue
+                        data = run_query(PULL_REQUESTS_QUERY, variables)
+                        repo_data = data.get("data", {}).get("repository")
+                        if not repo_data:
+                            print(f"   Skipping {name_with_owner}: repository data unavailable")
+                            break
 
-                    row = _build_pr_row(repo, pr)
-                    if row is None:
-                        continue
+                        pr_connection = repo_data["pullRequests"]
+                        nodes = pr_connection.get("nodes", [])
 
-                    dataset.append(row)
-                    seen_pr_numbers.add(pr_number)
-                    kept_for_repo += 1
+                        for pr in nodes:
+                            if not pr:
+                                continue
 
-                    if max_prs_per_repo is not None and kept_for_repo >= max_prs_per_repo:
-                        break
+                            pr_number = _safe_int(pr.get("number"))
+                            if pr_number in seen_pr_numbers:
+                                continue
 
-                if max_prs_per_repo is not None and kept_for_repo >= max_prs_per_repo:
-                    break
+                            row = _build_pr_row(repo, pr)
+                            if row is None:
+                                continue
 
-                if not pr_connection.get("pageInfo", {}).get("hasNextPage"):
-                    break
+                            dataset.append(row)
+                            repo_rows.append(row)
+                            seen_pr_numbers.add(pr_number)
+                            kept_for_repo += 1
 
-                cursor = pr_connection["pageInfo"].get("endCursor")
-                if sleep_seconds > 0:
-                    time.sleep(sleep_seconds)
+                            if max_prs_per_repo is not None and kept_for_repo >= max_prs_per_repo:
+                                break
 
-        print(f"   kept PRs for {name_with_owner}: {kept_for_repo}")
+                        if max_prs_per_repo is not None and kept_for_repo >= max_prs_per_repo:
+                            break
+
+                        if not pr_connection.get("pageInfo", {}).get("hasNextPage"):
+                            break
+
+                        cursor = pr_connection["pageInfo"].get("endCursor")
+                        if sleep_seconds > 0:
+                            time.sleep(sleep_seconds)
+
+                # after finishing a repo, append repo_rows to the CSV and update checkpoint
+                if repo_rows:
+                    for r in repo_rows:
+                        csv_writer.writerow(r)
+                    csv_file.flush()
+
+                try:
+                    with checkpoint_path.open("a", encoding="utf-8") as ck:
+                        ck.write(name_with_owner + "\n")
+                except Exception:
+                    pass
+
+                print(f"   kept PRs for {name_with_owner}: {kept_for_repo}")
+
+            except Exception as repo_error:
+                error_message = str(repo_error)
+                print(f"   ERROR collecting {name_with_owner}: {error_message}")
+                print(f"   Skipping {name_with_owner} and continuing...")
+                try:
+                    _append_failure_row(failure_path, name_with_owner, error_message)
+                except Exception:
+                    pass
+                try:
+                    with checkpoint_path.open("a", encoding="utf-8") as ck:
+                        ck.write(name_with_owner + "\n")
+                except Exception:
+                    pass
+    finally:
+        try:
+            csv_file.close()
+        except Exception:
+            pass
 
     print(f"Total PR rows collected: {len(dataset)}")
     return dataset
