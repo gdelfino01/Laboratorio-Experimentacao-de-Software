@@ -1,0 +1,61 @@
+{
+  "M1_total_repos": 9982,
+  "M2_total_direct_deps": 144348,
+  "M3_deps_with_cve": 61977,
+  "M4_pct_vuln_deps": 42.94,
+  "M5_pct_vuln_with_fix": 92.5,
+  "M6_severity_distribution": {
+    "LOW": {
+      "count": 10869,
+      "pct": 7.78
+    },
+    "MEDIUM": {
+      "count": 58192,
+      "pct": 41.67
+    },
+    "HIGH": {
+      "count": 50979,
+      "pct": 36.51
+    },
+    "CRITICAL": {
+      "count": 10789,
+      "pct": 7.73
+    },
+    "UNKNOWN": {
+      "count": 8808,
+      "pct": 6.31
+    }
+  },
+  "M7_severity_score_high_critical": 44.23,
+  "M8_dependabot_repos_with_vuln": {
+    "count": 240,
+    "total": 484,
+    "pct": 49.59
+  },
+  "M9_by_tool": {
+    "dependabot": {
+      "repos": 484,
+      "total_deps": 9210,
+      "vuln_deps": 2724,
+      "pct_vuln": 29.58
+    },
+    "none": {
+      "repos": 9261,
+      "total_deps": 129395,
+      "vuln_deps": 57626,
+      "pct_vuln": 44.53
+    },
+    "renovate": {
+      "repos": 180,
+      "total_deps": 3939,
+      "vuln_deps": 1003,
+      "pct_vuln": 25.46
+    },
+    "snyk": {
+      "repos": 57,
+      "total_deps": 1804,
+      "vuln_deps": 624,
+      "pct_vuln": 34.59
+    }
+  }
+}
