@@ -1,0 +1,5 @@
+tool,repos,total_direct_dependencies,total_resolved_versions,repos_with_any_vuln,vulnerable_dependencies,vulnerable_subdependencies,total_cves,cve_low,cve_medium,cve_high,cve_critical,cve_unknown,pct_vulnerable_deps,severity_score_high_critical_pct
+dependabot,484,9210,61671,240,2724,2351,5566,589,2286,2164,236,291,29.58,43.12
+none,9261,129395,620312,5248,57626,42618,129167,10000,54544,47522,10382,6719,44.53,44.83
+renovate,180,3939,19214,91,1003,792,1921,184,834,738,77,88,25.46,42.43
+snyk,57,1804,6780,37,624,423,1341,96,528,555,94,68,34.59,48.4
