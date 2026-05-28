@@ -1,4 +1,4 @@
-﻿import csv
+import csv
 import argparse
 import warnings
 import statistics
@@ -769,6 +769,6 @@ def update_rq3(selected_tool):
 
 # ─── Main ─────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    print(f"\n  ✓ Dashboard disponível em: http://localhost:{args.port}")
+    print(f"\n  [OK] Dashboard disponivel em: http://localhost:{args.port}")
     print("  Pressione Ctrl+C para parar.\n")
     app.run(debug=False, port=args.port, host="0.0.0.0")
