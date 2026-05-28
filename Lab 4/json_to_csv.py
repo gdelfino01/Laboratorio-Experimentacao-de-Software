@@ -59,6 +59,50 @@ def convert_summary():
 
 
 # ---------------------------------------------------------------------------
+# 1b. summary_package-lock.json  →  summary_by_category.csv
+#     Uma linha por categoria de bot (update, update_security, etc.)
+# ---------------------------------------------------------------------------
+def convert_summary_by_category():
+    data = load_json("summary_package-lock.json")
+    rows = []
+
+    for category, stats in data["by_dependency_bot_category"].items():
+        sev = stats["cve_severity_distribution"]
+        total_cves = stats["total_cves"]
+        high_critical = sev.get("HIGH", 0) + sev.get("CRITICAL", 0)
+
+        rows.append({
+            "category": category,
+            "repos": stats["repos"],
+            "total_direct_dependencies": stats["total_direct_dependencies"],
+            "total_resolved_versions": stats["total_resolved_versions"],
+            "repos_with_any_vuln": stats["repos_with_any_vuln"],
+            "vulnerable_dependencies": stats["vulnerable_dependencies"],
+            "vulnerable_subdependencies": stats["vulnerable_subdependencies"],
+            "total_cves": total_cves,
+            "cve_low": sev.get("LOW", 0),
+            "cve_medium": sev.get("MEDIUM", 0),
+            "cve_high": sev.get("HIGH", 0),
+            "cve_critical": sev.get("CRITICAL", 0),
+            "cve_unknown": sev.get("UNKNOWN", 0),
+            "pct_vulnerable_deps": round(
+                stats["vulnerable_dependencies"] / stats["total_direct_dependencies"] * 100, 2
+            ) if stats["total_direct_dependencies"] else 0,
+            "severity_score_high_critical_pct": round(
+                high_critical / total_cves * 100, 2
+            ) if total_cves else 0,
+        })
+
+    out_path = os.path.join(OUTPUT_DIR, "summary_by_category.csv")
+    with open(out_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=rows[0].keys())
+        writer.writeheader()
+        writer.writerows(rows)
+
+    print(f"[OK] summary_by_category.csv  ({len(rows)} linhas)")
+
+
+# ---------------------------------------------------------------------------
 # 2. vulnerable_dependencies.json  →  vulnerable_dependencies_flat.csv
 #    Uma linha por par (repositório × dependência vulnerável × CVE)
 # ---------------------------------------------------------------------------
@@ -168,6 +212,7 @@ def convert_dependencies_with_vulnerabilities():
 
 if __name__ == "__main__":
     convert_summary()
+    convert_summary_by_category()
     convert_vulnerable_dependencies()
     convert_dependencies_with_vulnerabilities()
     print("\nTodos os CSVs gerados com sucesso.")

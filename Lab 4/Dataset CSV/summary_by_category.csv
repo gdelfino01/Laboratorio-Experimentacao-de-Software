@@ -1,0 +1,8 @@
+category,repos,total_direct_dependencies,total_resolved_versions,repos_with_any_vuln,vulnerable_dependencies,vulnerable_subdependencies,total_cves,cve_low,cve_medium,cve_high,cve_critical,cve_unknown,pct_vulnerable_deps,severity_score_high_critical_pct
+audit_automation,22,322,3603,13,130,120,250,33,103,97,4,13,40.37,40.4
+none,8964,122975,572610,5117,56053,41215,123273,9364,52558,44937,9931,6483,45.58,44.51
+security_automation,162,2943,18853,104,1495,1217,3032,289,1206,1189,172,176,50.8,44.89
+security_remediation,100,2719,12918,60,1028,825,1952,123,844,754,163,68,37.81,46.98
+security_scanner,61,1866,8621,43,757,519,1626,123,660,653,111,79,40.57,46.99
+update,149,3269,16436,82,890,699,1724,151,764,657,78,74,27.23,42.63
+update_security,524,10043,70015,290,3140,2699,6130,642,2562,2332,263,331,31.27,42.33

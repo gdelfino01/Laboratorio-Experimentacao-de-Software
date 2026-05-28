@@ -1,4 +1,4 @@
-import csv
+﻿import csv
 import argparse
 import warnings
 import statistics
@@ -44,6 +44,10 @@ TOOL_COLORS = {
     "dependabot": "#2E75B6",
     "renovate":   "#2ECC71",
     "snyk":       "#9B59B6",
+    "codeql":     "#F39C12",
+    "mend":       "#1ABC9C",
+    "npm_audit":  "#3498DB",
+    "pyup":       "#D35400",
     "none":       "#E74C3C",
 }
 
@@ -51,11 +55,38 @@ TOOL_LABELS = {
     "dependabot": "Dependabot",
     "renovate":   "Renovate",
     "snyk":       "Snyk",
+    "codeql":     "CodeQL",
+    "mend":       "Mend",
+    "npm_audit":  "npm audit",
+    "pyup":       "PyUp",
     "none":       "Sem ferramenta",
 }
 
-tools_ordered = ["dependabot", "renovate", "snyk", "none"]
+CAT_COLORS = {
+    "update_security":      "#2E75B6",
+    "update":               "#2ECC71",
+    "security_scanner":     "#9B59B6",
+    "security_automation":  "#F39C12",
+    "security_remediation": "#1ABC9C",
+    "audit_automation":     "#3498DB",
+    "none":                 "#E74C3C",
+}
+
+CAT_LABELS = {
+    "update_security":      "Update + Security",
+    "update":               "Update",
+    "security_scanner":     "Security Scanner",
+    "security_automation":  "Security Automation",
+    "security_remediation": "Security Remediation",
+    "audit_automation":     "Audit Automation",
+    "none":                 "Sem ferramenta",
+}
+
+tools_ordered = ["dependabot", "renovate", "snyk", "codeql", "mend", "npm_audit", "pyup", "none"]
 tool_labels   = [TOOL_LABELS[t] for t in tools_ordered]
+cats_ordered  = ["update_security", "update", "security_scanner", "security_automation",
+                 "security_remediation", "audit_automation", "none"]
+cat_labels    = [CAT_LABELS[c] for c in cats_ordered]
 sev_labels    = ["LOW", "MEDIUM", "HIGH", "CRITICAL", "UNKNOWN"]
 
 
@@ -83,8 +114,10 @@ BASE_LAYOUT = dict(
 print("Carregando dados...")
 summary   = read_csv("summary_by_tool.csv")
 vuln_flat = read_csv("vulnerable_dependencies_flat.csv")
+cat_summary = read_csv("summary_by_category.csv")
 
 tool_data = {r["tool"]: r for r in summary}
+cat_data  = {r["category"]: r for r in cat_summary}
 
 M1 = sum(int(r["repos"]) for r in summary)
 M2 = sum(int(r["total_direct_dependencies"]) for r in summary)
@@ -142,6 +175,43 @@ none_pct = tool_vuln_pct[tools_ordered.index("none")]
 dep_pct  = tool_vuln_pct[tools_ordered.index("dependabot")]
 diff     = round(none_pct - dep_pct, 2)
 
+# ─── RQ3: "Any bot" vs "None" ────────────────────────────────────────────────
+any_bot_rows = [r for r in summary if r["tool"] != "none"]
+any_bot_repos = sum(int(r["repos"]) for r in any_bot_rows)
+any_bot_deps  = sum(int(r["total_direct_dependencies"]) for r in any_bot_rows)
+any_bot_vuln  = sum(int(r["vulnerable_dependencies"]) for r in any_bot_rows)
+any_bot_pct   = pct(any_bot_vuln, any_bot_deps)
+none_row      = tool_data["none"]
+none_deps     = int(none_row["total_direct_dependencies"])
+none_vuln     = int(none_row["vulnerable_dependencies"])
+none_pct_rq3  = pct(none_vuln, none_deps)
+rq3_diff      = round(none_pct_rq3 - any_bot_pct, 2)
+
+# ─── RQ4: Dados por categoria ────────────────────────────────────────────────
+cat_vuln_pct = [
+    pct(int(cat_data[c]["vulnerable_dependencies"]),
+        int(cat_data[c]["total_direct_dependencies"]))
+    if c in cat_data else 0 for c in cats_ordered
+]
+cat_repos = [int(cat_data[c]["repos"]) if c in cat_data else 0 for c in cats_ordered]
+cat_repos_vuln_pct = [
+    pct(int(cat_data[c]["repos_with_any_vuln"]), int(cat_data[c]["repos"]))
+    if c in cat_data else 0 for c in cats_ordered
+]
+cat_sev_score = [
+    float(cat_data[c]["severity_score_high_critical_pct"]) if c in cat_data else 0
+    for c in cats_ordered
+]
+
+sev_by_cat = {}
+for row in cat_summary:
+    c = row["category"]
+    total_c = int(row["total_cves"]) or 1
+    sev_by_cat[c] = {
+        s: pct(int(row.get(f"cve_{s.lower()}", 0)), total_c)
+        for s in sev_labels if f"cve_{s.lower()}" in row
+    }
+
 repo_cve_counter = Counter(r["repo_full_name"] for r in vuln_flat)
 repo_cve_values = list(repo_cve_counter.values())
 
@@ -176,7 +246,7 @@ def fig_donut_tool():
     ))
     fig.update_layout(
         **BASE_LAYOUT,
-        title=dict(text="Distribuição por Ferramenta (M1)", font_size=13, x=0.5),
+        title=dict(text="Distribuição por Ferramenta (M1)", font_size=13, x=0.01, xanchor="left"),
         showlegend=True,
         legend=dict(orientation="h", y=-0.22, font=dict(size=9, color=TEXT_DIM)),
         annotations=[dict(text=f"<b>{M1:,}</b><br>repos", x=0.5, y=0.5,
@@ -194,7 +264,7 @@ def fig_bar_deps_by_tool():
     ))
     fig.update_layout(
         **BASE_LAYOUT,
-        title=dict(text="Total Deps. Diretas por Grupo (M2)", font_size=13, x=0.5),
+        title=dict(text="Total Deps. Diretas por Grupo (M2)", font_size=13, x=0.01, xanchor="left"),
         xaxis=dict(gridcolor=GRID_COLOR, color=TEXT_DIM),
         yaxis=dict(color=TEXT_DIM, autorange="reversed"),
         showlegend=False,
@@ -216,7 +286,7 @@ def fig_bar_dep_kind():
     ))
     fig.update_layout(
         **BASE_LAYOUT,
-        title=dict(text="CVEs por Tipo de Dependência", font_size=13, x=0.5),
+        title=dict(text="CVEs por Tipo de Dependência", font_size=13, x=0.01, xanchor="left"),
         yaxis=dict(gridcolor=GRID_COLOR, color=TEXT_DIM, title="% dos CVEs"),
         xaxis=dict(color=TEXT_DIM),
         showlegend=False,
@@ -233,7 +303,7 @@ def fig_donut_vuln():
     ))
     fig.update_layout(
         **BASE_LAYOUT,
-        title=dict(text="Deps. Vulneráveis vs Seguras (M3/M2 — M4)", font_size=13, x=0.5),
+        title=dict(text="Deps. Vulneráveis vs Seguras (M3/M2 — M4)", font_size=13, x=0.01, xanchor="left"),
         showlegend=True,
         legend=dict(orientation="h", y=-0.18, font=dict(size=9, color=TEXT_DIM)),
         annotations=[dict(text=f"<b>{M4}%</b><br>vulneráveis", x=0.5, y=0.5,
@@ -251,7 +321,7 @@ def fig_bar_repos_vuln_pct():
     ))
     fig.update_layout(
         **BASE_LAYOUT,
-        title=dict(text="% Repositórios com ≥1 Vuln por Grupo", font_size=13, x=0.5),
+        title=dict(text="% Repositórios com ≥1 Vuln por Grupo", font_size=13, x=0.01, xanchor="left"),
         yaxis=dict(gridcolor=GRID_COLOR, color=TEXT_DIM, title="% de repositórios", range=[0, 110]),
         xaxis=dict(color=TEXT_DIM),
         showlegend=False,
@@ -268,7 +338,7 @@ def fig_donut_fix():
     ))
     fig.update_layout(
         **BASE_LAYOUT,
-        title=dict(text="Deps. Vulneráveis com Fix Disponível (M5)", font_size=13, x=0.5),
+        title=dict(text="Deps. Vulneráveis com Fix Disponível (M5)", font_size=13, x=0.01, xanchor="left"),
         showlegend=True,
         legend=dict(orientation="h", y=-0.18, font=dict(size=9, color=TEXT_DIM)),
         annotations=[dict(text=f"<b>{M5}%</b><br>com fix", x=0.5, y=0.5,
@@ -303,7 +373,7 @@ def fig_bar_severity(selected_tools=None):
     ))
     fig.update_layout(
         **BASE_LAYOUT,
-        title=dict(text="Distribuição CVEs por Severidade (M6 – CVSS)", font_size=13, x=0.5),
+        title=dict(text="Distribuição CVEs por Severidade (M6 – CVSS)", font_size=13, x=0.01, xanchor="left"),
         yaxis=dict(gridcolor=GRID_COLOR, color=TEXT_DIM, title="% do total de CVEs"),
         xaxis=dict(color=TEXT_DIM),
         showlegend=False,
@@ -321,7 +391,7 @@ def fig_donut_severity():
     ))
     fig.update_layout(
         **BASE_LAYOUT,
-        title=dict(text="Proporção por Nível (M6 – CVSS)", font_size=13, x=0.5),
+        title=dict(text="Proporção por Nível (M6 – CVSS)", font_size=13, x=0.01, xanchor="left"),
         showlegend=True,
         legend=dict(orientation="h", y=-0.22, font=dict(size=8, color=TEXT_DIM)),
         annotations=[dict(text=f"<b>{M7}%</b><br>alto+crítico<br>(M7)", x=0.5, y=0.5,
@@ -344,7 +414,7 @@ def fig_stacked_sev_by_tool(highlight_tool=None):
         ))
     fig.update_layout(
         **BASE_LAYOUT,
-        title=dict(text="Severidade por Grupo de Ferramenta (M6 por grupo)", font_size=13, x=0.5),
+        title=dict(text="Severidade por Grupo de Ferramenta (M6 por grupo)", font_size=13, x=0.01, xanchor="left"),
         barmode="stack",
         yaxis=dict(gridcolor=GRID_COLOR, color=TEXT_DIM,
                    title="% dos CVEs (por ferramenta)", range=[0, 115]),
@@ -360,14 +430,14 @@ def fig_bar_tool_vuln_pct(highlight_tool=None):
     fig = go.Figure(go.Bar(
         x=tool_labels, y=tool_vuln_pct,
         marker=dict(color=[TOOL_COLORS[t] for t in tools_ordered], opacity=opacities),
-        text=[f"{v:.2f}%" for v in tool_vuln_pct], textposition="outside",
+        text=[f"{v:.1f}%" for v in tool_vuln_pct], textposition="outside",
         hovertemplate="<b>%{x}</b><br>%{y:.2f}% deps. vulneráveis<extra></extra>",
     ))
     fig.add_hline(y=M4, line_dash="dash", line_color=TEXT_DIM, line_width=1.2,
                   annotation_text=f"Média: {M4}%", annotation_font_color=TEXT_DIM)
     fig.update_layout(
         **BASE_LAYOUT,
-        title=dict(text="% Deps. Vulneráveis por Grupo (M9)", font_size=13, x=0.5),
+        title=dict(text="% Deps. Vulneráveis por Ferramenta", font_size=13, x=0.01, xanchor="left"),
         yaxis=dict(gridcolor=GRID_COLOR, color=TEXT_DIM, title="% deps. vulneráveis"),
         xaxis=dict(color=TEXT_DIM),
         showlegend=False,
@@ -386,10 +456,80 @@ def fig_bar_repos_vuln_abs(highlight_tool=None):
     ))
     fig.update_layout(
         **BASE_LAYOUT,
-        title=dict(text="Repos com ≥1 Vuln por Grupo (M8 – absoluto)", font_size=13, x=0.5),
+        title=dict(text="Repos com ≥1 Vuln por Ferramenta (absoluto)", font_size=13, x=0.01, xanchor="left"),
         yaxis=dict(gridcolor=GRID_COLOR, color=TEXT_DIM, title="Número de repositórios"),
         xaxis=dict(color=TEXT_DIM),
         showlegend=False,
+    )
+    return fig
+
+
+def fig_rq3_comparison():
+    """Bar chart comparing 'Com Bot' vs 'Sem Bot' % vulnerable deps."""
+    labels = ["Com Bot (qualquer)", "Sem Bot"]
+    values = [any_bot_pct, none_pct_rq3]
+    colors = [ACCENT3, TOOL_COLORS["none"]]
+    fig = go.Figure(go.Bar(
+        x=labels, y=values,
+        marker=dict(color=colors),
+        text=[f"{v:.1f}%" for v in values], textposition="outside",
+        hovertemplate="<b>%{x}</b><br>%{y:.2f}% deps. vulneráveis<extra></extra>",
+    ))
+    fig.update_layout(
+        **BASE_LAYOUT,
+        title=dict(text="% Deps. Vulneráveis: Bot vs Sem Bot", font_size=13, x=0.01, xanchor="left"),
+        yaxis=dict(gridcolor=GRID_COLOR, color=TEXT_DIM, title="% deps. vulneráveis"),
+        xaxis=dict(color=TEXT_DIM),
+        showlegend=False,
+    )
+    return fig
+
+
+def fig_rq4_cat_vuln_pct():
+    """Bar chart of pct_vulnerable_deps by category."""
+    cats_no_none = [c for c in cats_ordered if c != "none"]
+    labels_no_none = [CAT_LABELS[c] for c in cats_no_none]
+    values_no_none = [pct(int(cat_data[c]["vulnerable_dependencies"]),
+                          int(cat_data[c]["total_direct_dependencies"]))
+                      for c in cats_no_none]
+    colors = [CAT_COLORS[c] for c in cats_no_none]
+    fig = go.Figure(go.Bar(
+        x=labels_no_none, y=values_no_none,
+        marker=dict(color=colors),
+        text=[f"{v:.1f}%" for v in values_no_none], textposition="outside",
+        hovertemplate="<b>%{x}</b><br>%{y:.2f}% deps. vulneráveis<extra></extra>",
+    ))
+    fig.add_hline(y=none_pct_rq3, line_dash="dash", line_color=TOOL_COLORS["none"], line_width=1.5,
+                  annotation_text=f"Sem Bot: {none_pct_rq3}%", annotation_font_color=TOOL_COLORS["none"])
+    fig.update_layout(
+        **BASE_LAYOUT,
+        title=dict(text="% Deps. Vulneráveis por Categoria de Bot", font_size=13, x=0.01, xanchor="left"),
+        yaxis=dict(gridcolor=GRID_COLOR, color=TEXT_DIM, title="% deps. vulneráveis"),
+        xaxis=dict(color=TEXT_DIM),
+        showlegend=False,
+    )
+    return fig
+
+
+def fig_rq4_severity_by_cat():
+    """Stacked bar of severity distribution by category (excluding none)."""
+    cats_no_none = [c for c in cats_ordered if c != "none"]
+    labels_no_none = [CAT_LABELS[c] for c in cats_no_none]
+    fig = go.Figure()
+    for s in sev_labels:
+        vals = [sev_by_cat.get(c, {}).get(s, 0) for c in cats_no_none]
+        fig.add_trace(go.Bar(
+            name=s, x=labels_no_none, y=vals,
+            marker_color=SEV_COLORS[s],
+            hovertemplate=f"<b>%{{x}}</b><br>{s}: %{{y:.1f}}%<extra></extra>",
+        ))
+    fig.update_layout(
+        **BASE_LAYOUT,
+        barmode="stack",
+        title=dict(text="Distribuição de Severidade por Categoria", font_size=13, x=0.01, xanchor="left"),
+        yaxis=dict(gridcolor=GRID_COLOR, color=TEXT_DIM, title="% dos CVEs"),
+        xaxis=dict(color=TEXT_DIM),
+        legend=dict(orientation="h", y=-0.25, x=0.5, xanchor="center"),
     )
     return fig
 
@@ -470,7 +610,7 @@ app.layout = html.Div([
                    "margin": "0", "letterSpacing": "-0.3px"},
         ),
         html.P(
-            "PUC Minas — Gustavo Delfino & Matheus Caetano · 2026",
+            "Sprint 3 · Lab04S03 — PUC Minas — Gustavo Delfino & Matheus Caetano · 2026",
             style={"color": TEXT_DIM, "fontSize": "11px", "margin": "5px 0 0"},
         ),
         # Filtro de ferramenta (afeta RQ3 charts)
@@ -556,59 +696,49 @@ app.layout = html.Div([
     ], style={"display": "flex", "gap": "14px", "padding": "6px 20px 14px"}),
 
     # ── RQ3 ───────────────────────────────────────────────────────────────────
-    section_hdr("RQ3 — Impacto do Dependabot na incidência de vulnerabilidades", ACCENT3),
+    section_hdr("RQ3 — A utilização de bots está associada a menor incidência de vulnerabilidades?", ACCENT3),
+    html.P(
+        "Comparamos a taxa de dependências vulneráveis em repositórios que utilizam "
+        "qualquer ferramenta automatizada (bot) versus repositórios sem nenhuma ferramenta.",
+        style={"color": TEXT_DIM, "fontSize": "11px", "margin": "0 24px 10px",
+               "lineHeight": "1.5"},
+    ),
     chart_row(
+        chart_card(fig_rq3_comparison(),     "chart-rq3-comparison"),
         chart_card(fig_bar_tool_vuln_pct(),  "chart-bar-tool-vuln"),
         chart_card(fig_bar_repos_vuln_abs(), "chart-bar-repos-abs"),
-
-        # Card de impacto
-        html.Div([
-            html.Div("Impacto do Dependabot", style={
-                "color": TEXT_MAIN, "fontSize": "13px", "fontWeight": "bold",
-                "textAlign": "center",
-            }),
-            html.Div("vs. repositórios sem ferramenta", style={
-                "color": TEXT_DIM, "fontSize": "10px", "textAlign": "center",
-                "marginBottom": "14px",
-            }),
-            html.Div([
-                html.Div([
-                    html.Div(f"{none_pct}%", style={
-                        "color": ACCENT4, "fontSize": "30px", "fontWeight": "bold",
-                    }),
-                    html.Div("Sem ferramenta", style={"color": TEXT_DIM, "fontSize": "10px"}),
-                ], style={"textAlign": "center"}),
-                html.Div("→", style={
-                    "color": ACCENT3, "fontSize": "30px", "alignSelf": "center",
-                    "margin": "0 8px",
-                }),
-                html.Div([
-                    html.Div(f"{dep_pct}%", style={
-                        "color": ACCENT3, "fontSize": "30px", "fontWeight": "bold",
-                    }),
-                    html.Div("Dependabot", style={"color": TEXT_DIM, "fontSize": "10px"}),
-                ], style={"textAlign": "center"}),
-            ], style={"display": "flex", "justifyContent": "center",
-                      "alignItems": "center", "margin": "8px 0 14px"}),
-
-            html.Div(f"−{diff} p.p.", style={
-                "color": ACCENT3, "fontSize": "38px", "fontWeight": "bold",
-                "textAlign": "center", "letterSpacing": "-1px",
-            }),
-            html.Div("redução na taxa de deps. vulneráveis", style={
-                "color": TEXT_DIM, "fontSize": "10px", "textAlign": "center",
-            }),
-        ], style={
-            "backgroundColor": PANEL_BG,
-            "border": f"1.5px solid {ACCENT3}",
-            "borderRadius": "10px",
-            "padding": "20px 16px",
-            "flex": "1",
-            "display": "flex",
-            "flexDirection": "column",
-            "justifyContent": "center",
-        }),
     ),
+    # KPIs RQ3
+    html.Div([
+        kpi_card(f"{any_bot_pct:.1f}%", "% Vuln.\nCom Bot", ACCENT3),
+        kpi_card(f"{none_pct_rq3:.1f}%", "% Vuln.\nSem Bot", ACCENT4),
+        kpi_card(f"−{rq3_diff} p.p.", "Diferença\n(Sem − Com)", ACCENT3),
+        kpi_card(f"{any_bot_repos:,}", "Repos\ncom bot", ACCENT1),
+        kpi_card(f"{int(none_row['repos']):,}", "Repos\nsem bot", TEXT_DIM),
+    ], style={"display": "flex", "gap": "14px", "padding": "6px 20px 14px"}),
+
+    # ── RQ4 ───────────────────────────────────────────────────────────────────
+    section_hdr("RQ4 — Existem diferenças entre categorias de bots quanto ao impacto nas vulnerabilidades?", ACCENT2),
+    html.P(
+        "Agrupamos as ferramentas em categorias funcionais e comparamos a taxa de dependências "
+        "vulneráveis e a distribuição de severidade entre elas.",
+        style={"color": TEXT_DIM, "fontSize": "11px", "margin": "0 24px 10px",
+               "lineHeight": "1.5"},
+    ),
+    chart_row(
+        chart_card(fig_rq4_cat_vuln_pct(),     "chart-rq4-cat-vuln"),
+        chart_card(fig_rq4_severity_by_cat(),  "chart-rq4-sev-cat"),
+    ),
+    # KPIs RQ4
+    html.Div([
+        kpi_card(f"{min(v for c, v in zip(cats_ordered, cat_vuln_pct) if c != 'none'):.1f}%",
+                 "Menor %\n(Update)", ACCENT3),
+        kpi_card(f"{max(v for c, v in zip(cats_ordered, cat_vuln_pct) if c != 'none'):.1f}%",
+                 "Maior %\n(Sec. Automation)", ACCENT4),
+        kpi_card(f"{max(cat_vuln_pct) - min(v for c, v in zip(cats_ordered, cat_vuln_pct) if c != 'none'):.1f} p.p.",
+                 "Amplitude\nentre categorias", ACCENT2),
+        kpi_card("6", "Categorias\nde bot", ACCENT1),
+    ], style={"display": "flex", "gap": "14px", "padding": "6px 20px 14px"}),
 
     # Footer
     html.Div(
@@ -628,14 +758,12 @@ app.layout = html.Div([
 @app.callback(
     Output("chart-bar-tool-vuln",  "figure"),
     Output("chart-bar-repos-abs",  "figure"),
-    Output("chart-stacked-sev",    "figure"),
     Input("filter-tool", "value"),
 )
 def update_rq3(selected_tool):
     return (
         fig_bar_tool_vuln_pct(highlight_tool=selected_tool),
         fig_bar_repos_vuln_abs(highlight_tool=selected_tool),
-        fig_stacked_sev_by_tool(highlight_tool=selected_tool),
     )
 
 
