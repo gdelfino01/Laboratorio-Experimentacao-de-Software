@@ -106,7 +106,7 @@ BASE_LAYOUT = dict(
     plot_bgcolor=PANEL_BG,
     font=dict(color=TEXT_MAIN, family="Inter, Roboto, sans-serif"),
     margin=dict(l=15, r=15, t=45, b=15),
-    hoverlabel=dict(bgcolor=DARK_BG, bordercolor=PANEL_BG, font_size=12),
+    hoverlabel=dict(bgcolor=DARK_BG, bordercolor=PANEL_BG, font_size=12, font_color="#FFFFFF"),
 )
 
 
