@@ -1,6 +1,7 @@
 import csv
 import argparse
 import warnings
+import statistics
 from pathlib import Path
 from collections import Counter, defaultdict
 
@@ -140,6 +141,26 @@ for row in summary:
 none_pct = tool_vuln_pct[tools_ordered.index("none")]
 dep_pct  = tool_vuln_pct[tools_ordered.index("dependabot")]
 diff     = round(none_pct - dep_pct, 2)
+
+repo_cve_counter = Counter(r["repo_full_name"] for r in vuln_flat)
+repo_cve_values = list(repo_cve_counter.values())
+
+repo_cve_median = statistics.median(repo_cve_values)
+repo_cve_mean = statistics.mean(repo_cve_values)
+repo_cve_q1 = statistics.quantiles(repo_cve_values, n=4)[0]
+repo_cve_q3 = statistics.quantiles(repo_cve_values, n=4)[2]
+
+cvss_scores = []
+for r in vuln_flat:
+    score_str = r.get("cvss_base_score", "").strip()
+    if score_str:
+        try:
+            cvss_scores.append(float(score_str))
+        except ValueError:
+            pass
+
+cvss_median = statistics.median(cvss_scores) if cvss_scores else 0
+cvss_mean = statistics.mean(cvss_scores) if cvss_scores else 0
 
 print("  Dados processados. Iniciando dashboard interativo...")
 
@@ -449,7 +470,7 @@ app.layout = html.Div([
                    "margin": "0", "letterSpacing": "-0.3px"},
         ),
         html.P(
-            "Sprint 1 · Lab04S01 · PUC Minas — Gustavo Delfino & Matheus Caetano · 10/05/2026",
+            "PUC Minas — Gustavo Delfino & Matheus Caetano · 2026",
             style={"color": TEXT_DIM, "fontSize": "11px", "margin": "5px 0 0"},
         ),
         # Filtro de ferramenta (afeta RQ3 charts)
@@ -491,20 +512,48 @@ app.layout = html.Div([
     ),
 
     # ── RQ1 ───────────────────────────────────────────────────────────────────
-    section_hdr("RQ1 — Frequência de dependências vulneráveis", ACCENT1),
+    section_hdr("RQ1 — Qual a frequência de dependências vulneráveis em projetos Node.js?", ACCENT1),
+    html.P(
+        "Investigamos a proporção de dependências diretas com ao menos uma CVE registrada, "
+        "a disponibilidade de correções e a distribuição do número de CVEs por repositório.",
+        style={"color": TEXT_DIM, "fontSize": "11px", "margin": "0 24px 10px",
+               "lineHeight": "1.5"},
+    ),
     chart_row(
         chart_card(fig_donut_vuln(),           "chart-donut-vuln"),
         chart_card(fig_bar_repos_vuln_pct(),   "chart-bar-repos-vuln"),
         chart_card(fig_donut_fix(),            "chart-donut-fix"),
     ),
+    # KPIs complementares RQ1
+    html.Div([
+        kpi_card(f"{repo_cve_median:.0f}", "Mediana CVEs\npor repo", ACCENT1),
+        kpi_card(f"{repo_cve_mean:.1f}", "Média CVEs\npor repo", ACCENT1),
+        kpi_card(f"Q1={repo_cve_q1:.0f}", "1º Quartil\nCVEs/repo", TEXT_DIM),
+        kpi_card(f"Q3={repo_cve_q3:.0f}", "3º Quartil\nCVEs/repo", TEXT_DIM),
+        kpi_card(f"{len(repo_cve_counter):,}", "Repos com\n≥1 CVE", ACCENT4),
+    ], style={"display": "flex", "gap": "14px", "padding": "6px 20px 14px"}),
 
     # ── RQ2 ───────────────────────────────────────────────────────────────────
-    section_hdr("RQ2 — Distribuição de severidade CVSS", ACCENT2),
+    section_hdr("RQ2 — Qual a distribuição de severidade (CVSS) das CVEs encontradas?", ACCENT2),
+    html.P(
+        "Analisamos o perfil de severidade das vulnerabilidades identificadas usando scores CVSS, "
+        "comparando a distribuição entre tipos de dependência e ferramentas de segurança.",
+        style={"color": TEXT_DIM, "fontSize": "11px", "margin": "0 24px 10px",
+               "lineHeight": "1.5"},
+    ),
     chart_row(
         chart_card(fig_bar_severity(),       "chart-bar-sev"),
         chart_card(fig_donut_severity(),     "chart-donut-sev"),
         chart_card(fig_stacked_sev_by_tool(), "chart-stacked-sev"),
     ),
+    # KPIs complementares RQ2
+    html.Div([
+        kpi_card(f"{cvss_median:.1f}", "Mediana\nScore CVSS", ACCENT2),
+        kpi_card(f"{cvss_mean:.1f}", "Média\nScore CVSS", ACCENT2),
+        kpi_card(f"{M7}%", "HIGH + CRITICAL\n(M7)", ACCENT4),
+        kpi_card(f"{len(cvss_scores):,}", "CVEs com\nscore CVSS", TEXT_DIM),
+        kpi_card(f"{total_sev:,}", "Total CVEs\nanalisados", ACCENT2),
+    ], style={"display": "flex", "gap": "14px", "padding": "6px 20px 14px"}),
 
     # ── RQ3 ───────────────────────────────────────────────────────────────────
     section_hdr("RQ3 — Impacto do Dependabot na incidência de vulnerabilidades", ACCENT3),
