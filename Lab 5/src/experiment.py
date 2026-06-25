@@ -112,4 +112,4 @@ def run_experiment(
                 f"(remaining quota: {last_remaining})"
             )
 
-    print(f"[runner] saved → {output_path}")
+    print(f"[runner] saved -> {output_path}")
