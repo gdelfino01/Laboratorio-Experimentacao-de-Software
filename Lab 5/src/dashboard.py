@@ -461,6 +461,99 @@ body {
     background: rgba(249, 115, 22, 0.2);
     color: %(orange)s;
 }
+
+/* ── Tab styling ─────────────────────────────────────── */
+
+.custom-tabs-container {
+    border-bottom: 2px solid %(border)s;
+    margin-bottom: 28px;
+}
+
+.custom-tabs-container .tab {
+    background: transparent;
+    border: none;
+    color: %(muted)s;
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    padding: 12px 24px;
+    cursor: pointer;
+    transition: color 0.2s, border-color 0.2s;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -2px;
+}
+
+.custom-tabs-container .tab:hover {
+    color: %(text)s;
+}
+
+.custom-tabs-container .tab--selected {
+    color: %(blue)s !important;
+    border-bottom: 3px solid %(blue)s !important;
+    background: transparent !important;
+    font-weight: 600;
+}
+
+.tab-content {
+    animation: fadeIn 0.3s ease-in-out;
+    min-height: 60vh;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.explanation-box {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(249, 115, 22, 0.06));
+    border: 1px solid %(border)s;
+    border-left: 4px solid %(blue)s;
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin-bottom: 24px;
+    font-size: 13.5px;
+    line-height: 1.7;
+    color: %(muted)s;
+}
+
+.explanation-box strong {
+    color: %(text)s;
+}
+
+.explanation-box code {
+    background: rgba(59, 130, 246, 0.15);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 12.5px;
+    color: %(blue)s;
+}
+
+.conclusion-card {
+    background: %(card)s;
+    border: 1px solid %(border)s;
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 24px;
+}
+
+.conclusion-card h3 {
+    margin: 0 0 12px;
+    font-size: 16px;
+    font-weight: 600;
+    color: %(text)s;
+}
+
+.conclusion-card p {
+    margin: 0 0 8px;
+    font-size: 13.5px;
+    line-height: 1.6;
+    color: %(muted)s;
+}
+
+.conclusion-card .highlight {
+    color: %(orange)s;
+    font-weight: 600;
+}
 """ % {
     "bg": BG_COLOR,
     "text": TEXT_COLOR,
@@ -494,6 +587,8 @@ def build_app(df: pd.DataFrame, stats_tests: pd.DataFrame | None) -> dash.Dash:
     rest_size_med = df[df["treatment"] == "REST"]["response_bytes"].median()
     gql_size_med = df[df["treatment"] == "GRAPHQL"]["response_bytes"].median()
     size_reduction = ((rest_size_med - gql_size_med) / rest_size_med) * 100
+
+    time_diff_pct = ((gql_time_med - rest_time_med) / rest_time_med) * 100
 
     # ---- Build charts ------------------------------------------------------
     box_time_overall = build_boxplot_overall(
@@ -530,6 +625,265 @@ def build_app(df: pd.DataFrame, stats_tests: pd.DataFrame | None) -> dash.Dash:
     scatter = build_scatter_timeline(df)
     stats_table = build_stats_table(stats_tests)
 
+    # ---- Tab content builders ----------------------------------------------
+    tab_style = {
+        "borderBottom": "none",
+        "borderTop": "none",
+        "borderLeft": "none",
+        "borderRight": "none",
+        "backgroundColor": "transparent",
+        "color": TEXT_MUTED,
+        "fontFamily": "Inter, system-ui, sans-serif",
+        "fontSize": "14px",
+        "fontWeight": "500",
+        "padding": "12px 24px",
+    }
+    tab_selected_style = {
+        **tab_style,
+        "color": REST_COLOR,
+        "fontWeight": "600",
+        "borderBottom": f"3px solid {REST_COLOR}",
+    }
+
+    # ── Tab 1: Visao Geral ──────────────────────────────────────────
+    tab_overview = dcc.Tab(
+        label="\U0001f4ca  Visao Geral",
+        style=tab_style,
+        selected_style=tab_selected_style,
+        children=html.Div(className="tab-content", children=[
+            html.Div(className="explanation-box", children=[
+                html.Strong("Sobre o experimento: "),
+                "Este dashboard apresenta os resultados de um experimento controlado "
+                "comparando ",
+                html.Strong("REST"),
+                " e ",
+                html.Strong("GraphQL"),
+                " como tecnologias de consulta a APIs. "
+                "Foram realizadas ",
+                html.Code(f"{n_iterations} iteracoes"),
+                f" para cada uma das {n_queries} queries pareadas, "
+                f"totalizando ",
+                html.Strong(f"{n_total} medicoes validas"),
+                ". Cada iteracao executa a mesma consulta logica em ambos os "
+                "tratamentos (REST e GraphQL) em ordem aleatorizada para evitar "
+                "vieses de ordenacao.",
+            ]),
+
+            html.Div(className="cards-row", children=[
+                _stat_card(
+                    "Medicoes Validas", f"{n_total}",
+                    f"{n_iterations} iteracoes x {n_queries} queries x 2",
+                ),
+                _stat_card(
+                    "Mediana Tempo REST",
+                    f"{rest_time_med:,.0f} ms",
+                    "",
+                    REST_COLOR,
+                ),
+                _stat_card(
+                    "Mediana Tempo GraphQL",
+                    f"{gql_time_med:,.0f} ms",
+                    f"{abs(time_diff_pct):.0f}% {'mais lento' if time_diff_pct > 0 else 'mais rapido'}",
+                    GRAPHQL_COLOR,
+                ),
+                _stat_card(
+                    "Reducao Tamanho",
+                    f"{size_reduction:.0f}%",
+                    f"REST {rest_size_med:,.0f} -> GraphQL {gql_size_med:,.0f} bytes",
+                    ACCENT_GREEN,
+                ),
+            ]),
+
+            html.Div(className="conclusion-card", children=[
+                html.H3("\u2728 Principais Descobertas"),
+                html.P([
+                    html.Strong("RQ1 (Tempo): "),
+                    f"A mediana do tempo de resposta do GraphQL foi "
+                    f"de {gql_time_med:,.0f} ms contra {rest_time_med:,.0f} ms "
+                    f"do REST. ",
+                    "Embora a diferenca seja estatisticamente significativa "
+                    "(p < 0.05), o tamanho do efeito (Cliff's delta) e ",
+                    html.Span("negligivel", className="highlight"),
+                    ", indicando que na pratica a performance e semelhante.",
+                ]),
+                html.P([
+                    html.Strong("RQ2 (Tamanho): "),
+                    f"O GraphQL reduziu o tamanho das respostas em ",
+                    html.Span(f"{size_reduction:.0f}%", className="highlight"),
+                    f" na mediana geral. O efeito e ",
+                    html.Span("large", className="highlight"),
+                    ", confirmando que o GraphQL transfere "
+                    "significativamente menos dados ao solicitar apenas os "
+                    "campos necessarios.",
+                ]),
+            ]),
+
+            html.Div(className="chart-container", children=[
+                dcc.Graph(figure=scatter, config={"displayModeBar": False}),
+            ]),
+
+            html.Div(className="explanation-box", children=[
+                html.Strong("Sobre o grafico acima: "),
+                "O scatter plot mostra o tempo de resposta de cada medicao ao "
+                "longo das iteracoes. Ele permite identificar tendencias "
+                "temporais, outliers e verificar a estabilidade das medicoes.",
+            ]),
+        ]),
+    )
+
+    # ── Tab 2: RQ1 - Tempo de Resposta ─────────────────────────────
+    tab_rq1 = dcc.Tab(
+        label="\u23f1  RQ1 - Tempo de Resposta",
+        style=tab_style,
+        selected_style=tab_selected_style,
+        children=html.Div(className="tab-content", children=[
+            html.H2([
+                html.Span("RQ1", className="rq-badge rq-badge-rq1"),
+                "Consultas GraphQL possuem desempenho (tempo de resposta) "
+                "comparavel a consultas REST?",
+            ], className="section-title"),
+
+            html.Div(className="explanation-box", children=[
+                html.Strong("O que estamos medindo: "),
+                "O tempo de resposta (em milissegundos) de cada requisicao, "
+                "medido do envio da request HTTP ate o recebimento completo "
+                "do corpo da resposta. ",
+                html.Strong("Boxplots"),
+                " mostram a distribuicao (mediana, quartis e outliers). ",
+                html.Strong("Graficos de barras"),
+                " comparam as medianas por query para facilitar a leitura.",
+            ]),
+
+            html.Div(className="charts-grid", children=[
+                html.Div(className="chart-container", children=[
+                    dcc.Graph(figure=box_time_overall, config={"displayModeBar": False}),
+                ]),
+                html.Div(className="chart-container", children=[
+                    dcc.Graph(figure=bar_time, config={"displayModeBar": False}),
+                ]),
+            ]),
+
+            html.Div(className="chart-container", children=[
+                dcc.Graph(figure=box_time_query, config={"displayModeBar": False}),
+            ]),
+
+            html.Div(className="explanation-box", children=[
+                html.Strong("Interpretacao: "),
+                "Queries simples (Q1, Q2) apresentam tempos semelhantes entre "
+                "REST e GraphQL. Queries que retornam listas (Q3, Q5) tendem a "
+                "ser mais lentas no GraphQL devido ao overhead do resolver. "
+                "Ja a Q4 (issues) e mais rapida no GraphQL, possivelmente porque "
+                "o REST retorna um payload muito maior que precisa de mais tempo "
+                "de transferencia.",
+            ]),
+        ]),
+    )
+
+    # ── Tab 3: RQ2 - Tamanho da Resposta ───────────────────────────
+    tab_rq2 = dcc.Tab(
+        label="\U0001f4e6  RQ2 - Tamanho da Resposta",
+        style=tab_style,
+        selected_style=tab_selected_style,
+        children=html.Div(className="tab-content", children=[
+            html.H2([
+                html.Span("RQ2", className="rq-badge rq-badge-rq2"),
+                "Respostas GraphQL sao menores que respostas REST equivalentes?",
+            ], className="section-title"),
+
+            html.Div(className="explanation-box", children=[
+                html.Strong("O que estamos medindo: "),
+                "O tamanho do corpo da resposta HTTP em bytes. "
+                "O GraphQL permite solicitar apenas os campos necessarios "
+                "(eliminando over-fetching), enquanto o REST retorna todos os "
+                "campos definidos pela API. O grafico de reducao (%) mostra "
+                "quanto menor e a resposta GraphQL em relacao a REST para cada query.",
+            ]),
+
+            html.Div(className="charts-grid", children=[
+                html.Div(className="chart-container", children=[
+                    dcc.Graph(figure=box_size_overall, config={"displayModeBar": False}),
+                ]),
+                html.Div(className="chart-container", children=[
+                    dcc.Graph(figure=reduction_bar, config={"displayModeBar": False}),
+                ]),
+            ]),
+
+            html.Div(className="chart-container", children=[
+                dcc.Graph(figure=box_size_query, config={"displayModeBar": False}),
+            ]),
+
+            html.Div(className="chart-container", children=[
+                dcc.Graph(figure=bar_size, config={"displayModeBar": False}),
+            ]),
+
+            html.Div(className="explanation-box", children=[
+                html.Strong("Interpretacao: "),
+                "A reducao de tamanho e consistente em todas as queries, "
+                "com destaque para Q4 e Q5 que possuem payloads REST muito "
+                "grandes (issues e pull requests incluem dezenas de campos "
+                "desnecessarios). O GraphQL elimina essa ",
+                html.Strong("over-fetching"),
+                ", reduzindo drasticamente o volume de dados transferidos.",
+            ]),
+        ]),
+    )
+
+    # ── Tab 4: Testes Estatisticos ─────────────────────────────────
+    tab_stats = dcc.Tab(
+        label="\U0001f9ea  Testes Estatisticos",
+        style=tab_style,
+        selected_style=tab_selected_style,
+        children=html.Div(className="tab-content", children=[
+            html.H2(
+                "Testes Estatisticos (Wilcoxon Signed-Rank)",
+                className="section-title",
+            ),
+
+            html.Div(className="explanation-box", children=[
+                html.Strong("Metodologia: "),
+                "Como os dados nao seguem distribuicao normal (confirmado pelo "
+                "teste de Shapiro-Wilk), utilizamos o teste nao-parametrico de ",
+                html.Strong("Wilcoxon Signed-Rank"),
+                " para amostras pareadas. O nivel de significancia adotado e ",
+                html.Code("alpha = 0.05"),
+                ". Quando ",
+                html.Code("p < 0.05"),
+                ", rejeitamos H0 (hipotese nula de que nao ha diferenca). "
+                "O tamanho do efeito e medido pelo ",
+                html.Strong("Cliff's delta"),
+                ": negligible (|d| < 0.147), small (< 0.33), "
+                "medium (< 0.474) e large (>= 0.474).",
+            ]),
+
+            html.Div(className="table-container", children=[stats_table]),
+
+            html.Div(className="explanation-box", children=[
+                html.Strong("Como ler a tabela: "),
+                html.Br(),
+                html.Strong("\u2022 RQ"),
+                " — Questao de pesquisa (RQ1 = tempo, RQ2 = tamanho).",
+                html.Br(),
+                html.Strong("\u2022 Escopo"),
+                " — 'overall' agrega todas as queries; Q1-Q5 sao analises individuais.",
+                html.Br(),
+                html.Strong("\u2022 p-valor"),
+                " — Probabilidade de observar tal diferenca se H0 fosse verdadeira. "
+                "Quanto menor, mais forte a evidencia contra H0.",
+                html.Br(),
+                html.Strong("\u2022 Cliff's delta"),
+                " — Magnitude do efeito. Valores positivos indicam REST > GraphQL; "
+                "negativos indicam GraphQL > REST.",
+                html.Br(),
+                html.Strong("\u2022 Decisao H0"),
+                " — ",
+                html.Span("Rejeitada", style={"color": ACCENT_RED, "fontWeight": "bold"}),
+                " = diferenca significativa; ",
+                html.Span("Nao rejeitada", style={"color": ACCENT_GREEN}),
+                " = sem evidencia de diferenca.",
+            ]),
+        ]),
+    )
+
     # ---- Layout ------------------------------------------------------------
     app.index_string = """<!DOCTYPE html>
 <html>
@@ -553,82 +907,13 @@ def build_app(df: pd.DataFrame, stats_tests: pd.DataFrame | None) -> dash.Dash:
             html.P("Lab 05 - Experimento Controlado | Dashboard de Resultados"),
         ]),
 
-        # ── Summary Cards ──────────────────────────────────────────────
-        html.Div(className="cards-row", children=[
-            _stat_card("Medicoes Validas", f"{n_total}", f"{n_iterations} iteracoes x {n_queries} queries x 2"),
-            _stat_card(
-                "Mediana Tempo REST",
-                f"{rest_time_med:,.0f} ms",
-                "",
-                REST_COLOR,
-            ),
-            _stat_card(
-                "Mediana Tempo GraphQL",
-                f"{gql_time_med:,.0f} ms",
-                "levemente mais lento" if gql_time_med > rest_time_med else "mais rapido",
-                GRAPHQL_COLOR,
-            ),
-            _stat_card(
-                "Reducao Tamanho",
-                f"{size_reduction:.0f}%",
-                f"REST {rest_size_med:,.0f} -> GraphQL {gql_size_med:,.0f} bytes",
-                ACCENT_GREEN,
-            ),
-        ]),
-
-        # ── RQ1: Response Time ─────────────────────────────────────────
-        html.H2([
-            html.Span("RQ1", className="rq-badge rq-badge-rq1"),
-            "Tempo de Resposta",
-        ], className="section-title"),
-
-        html.Div(className="charts-grid", children=[
-            html.Div(className="chart-container", children=[
-                dcc.Graph(figure=box_time_overall, config={"displayModeBar": False}),
-            ]),
-            html.Div(className="chart-container", children=[
-                dcc.Graph(figure=bar_time, config={"displayModeBar": False}),
-            ]),
-        ]),
-
-        html.Div(className="chart-container", children=[
-            dcc.Graph(figure=box_time_query, config={"displayModeBar": False}),
-        ]),
-
-        # ── RQ2: Response Size ─────────────────────────────────────────
-        html.H2([
-            html.Span("RQ2", className="rq-badge rq-badge-rq2"),
-            "Tamanho da Resposta",
-        ], className="section-title"),
-
-        html.Div(className="charts-grid", children=[
-            html.Div(className="chart-container", children=[
-                dcc.Graph(figure=box_size_overall, config={"displayModeBar": False}),
-            ]),
-            html.Div(className="chart-container", children=[
-                dcc.Graph(figure=reduction_bar, config={"displayModeBar": False}),
-            ]),
-        ]),
-
-        html.Div(className="chart-container", children=[
-            dcc.Graph(figure=box_size_query, config={"displayModeBar": False}),
-        ]),
-
-        html.Div(className="chart-container", children=[
-            dcc.Graph(figure=bar_size, config={"displayModeBar": False}),
-        ]),
-
-        # ── Statistical Tests ──────────────────────────────────────────
-        html.H2("Testes Estatisticos (Wilcoxon Signed-Rank)", className="section-title"),
-
-        html.Div(className="table-container", children=[stats_table]),
-
-        # ── Timeline ───────────────────────────────────────────────────
-        html.H2("Evolucao Temporal", className="section-title"),
-
-        html.Div(className="chart-container", children=[
-            dcc.Graph(figure=scatter, config={"displayModeBar": False}),
-        ]),
+        # ── Tabs ───────────────────────────────────────────────────────
+        dcc.Tabs(
+            id="dashboard-tabs",
+            value="tab-overview",
+            className="custom-tabs-container",
+            children=[tab_overview, tab_rq1, tab_rq2, tab_stats],
+        ),
 
         # ── Footer ─────────────────────────────────────────────────────
         html.Div(className="footer", children=[
